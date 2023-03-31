@@ -2,8 +2,8 @@
 The NFSMW12 exporter is a Blender add-on to enable exporting objects as a Need for Speed Most Wanted 2012 (PC) file, currently supporting vehicles, tracks, collisions and characters.
 
 ## Requirements
-- [Blender](https://www.blender.org/download/) (v3.1 or newer, recommended is v3.4)  
-- [NVIDIA textute tools 2.1.2 - NVTT](https://github.com/castano/nvidia-texture-tools)  
+- [Blender](https://www.blender.org/download/) (v3.1 or up to v3.4)  
+- [NVIDIA textute tools 2.1.1 - NVTT](https://github.com/castano/nvidia-texture-tools)  
 - [Bundle Packer Unpacker](https://github.com/DGIorio/bundle_packer_unpacker)  
 - [Additional Blender panels](https://github.com/DGIorio/additional_blender_panels)  
 - [Game library](https://drive.google.com/file/d/10zKBiuUgS96G6tKT2AQGnIUovaH7Pg_c/view?usp=sharing)
