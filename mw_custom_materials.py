@@ -67,52 +67,56 @@ def custom_shaders():
 def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader):
 	sampler_states_info = ["7F_77_6A_0A"]*num_sampler_states_shader
 	
-	if shader_type.lower() == "interior" or shader_type == "VehicleNFS13_Interior":
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif shader_type.lower() == "mirror" or shader_type == "VehicleNFS13_Mirror":
-		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
-	elif shader_type.lower() == "caliper" or shader_type.lower() == "caliper_textured" or shader_type == "VehicleNFS13_Caliper":
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif shader_type.lower() == "brakedisc" or shader_type == "VehicleNFS13_BrakeDisc":
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif shader_type.lower() == "chassis" or shader_type == "VehicleNFS13_Chassis":
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif shader_type.lower() == "carbonfiber" or shader_type == "VehicleNFS13_Carbonfiber":
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "68_EF_09_00":    #VehicleNFS13_BodyPaint_TwoPaintMask
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
-	elif mShaderId == "72_EF_09_00":    #VehicleNFS13_BodyPaint_Livery
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
-	elif mShaderId == "76_EF_09_00":    #VehicleNFS13_BodyPaint
-		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
-	elif mShaderId == "78_EF_09_00":    #VehicleNFS13_Body_Textured_NormalMap_NoDamage
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "7C_EF_09_00":    #VehicleNFS13_Body_Textured_NormalMap_EmissiveFourChannel_NoDamage_NoEffects
-		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
-	elif mShaderId == "8A_EF_09_00":    #VehicleNFS13_Body_Alpha1bit_NormalMap_Textured_NoDamage
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "92_EF_09_00":    #VehicleNFS13_Body
-		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
-	elif mShaderId == "A5_EF_09_00":    #VehicleNFS13_Glass_Doublesided
-		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
-	elif mShaderId == "A7_EF_09_00":    #VehicleNFS13_Glass_Textured_Lightmap
-		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
-	elif mShaderId == "A9_EF_09_00":    #VehicleNFS13_Glass
-		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
-	elif mShaderId == "B5_EF_09_00":    #VehicleNFS13_Wheel_Textured_Roughness
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "BB_5F_0F_00":    #VehicleNFS13_Wheel_Tyre_Textured_Normalmap_Blurred
+	elif mShaderId == "6E_EF_09_00":	#VehicleNFS13_BodyPaint_NormalMap_NoDamage
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
-	elif mShaderId == "FC_BF_19_00":    #VehicleNFS13_Wheel_Alpha1bit_Textured_Normalmap
+	elif mShaderId == "68_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaintMask
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "72_EF_09_00":	#VehicleNFS13_BodyPaint_Livery
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "76_EF_09_00":	#VehicleNFS13_BodyPaint
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "78_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_NoDamage
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "6E_EF_09_00":  #VehicleNFS13_BodyPaint_NormalMap_NoDamage
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
-	elif mShaderId == "88_EF_09_00":  #VehicleNFS13_Body_Lightmap
+	elif mShaderId == "7A_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_LocalEmissive
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "7C_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_EmissiveFourChannel_NoDamage_NoEffects
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "7E_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_Lightmap
+		sampler_states_info = ['74_2A_D8_6D', '60_7D_0D_2E', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "88_EF_09_00":	#VehicleNFS13_Body_Lightmap
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "A1_EF_09_00":  #VehicleNFS13_Refraction
+	elif mShaderId == "8A_EF_09_00":	#VehicleNFS13_Body_Alpha1bit_NormalMap_Textured_NoDamage
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "92_EF_09_00":	#VehicleNFS13_Body
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "A1_EF_09_00":	#VehicleNFS13_Refraction
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "AA_D4_10_00":    #CharacterNew_Opaque_Textured_Normal_Spec_VertexAO
+	elif mShaderId == "A5_EF_09_00":	#VehicleNFS13_Glass_Doublesided
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "A7_EF_09_00":	#VehicleNFS13_Glass_Textured_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "A9_EF_09_00":	#VehicleNFS13_Glass
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "B3_EF_09_00":	#VehicleNFS13_Wheel_Textured_Normalmap_Blurred
+		sampler_states_info = ['7F_77_6A_0A', '89_B6_8C_9A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "B5_EF_09_00":	#VehicleNFS13_Wheel_Textured_Roughness
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "B9_EF_09_00":	#VehicleNFS13_Wheel_Alpha_Textured_Normalmap_Blurred_Doublesided_PixelAO
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "BF_EF_09_00":	#VehicleNFS13_Wheel_Alpha1bit_Normalmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "C8_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint_Livery
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "BB_5F_0F_00":	#VehicleNFS13_Wheel_Tyre_Textured_Normalmap_Blurred
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "9C_D4_10_00":	#VehicleNFS13_Body_Textured_NormalMap_Lightmap_Licenseplate
+		sampler_states_info = ['74_2A_D8_6D', '60_7D_0D_2E', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "AA_D4_10_00":	#CharacterNew_Opaque_Textured_Normal_Spec_VertexAO
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "FC_BF_19_00":	#VehicleNFS13_Wheel_Alpha1bit_Textured_Normalmap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "08_15_1F_00":	#VehicleNFS13_Body_Driver
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
 	
 	return sampler_states_info
 
