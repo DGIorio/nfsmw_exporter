@@ -67,7 +67,7 @@ def custom_shaders():
 def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader):
 	sampler_states_info = ["7F_77_6A_0A"]*num_sampler_states_shader
 	
-	elif mShaderId == "6E_EF_09_00":	#VehicleNFS13_BodyPaint_NormalMap_NoDamage
+	if mShaderId == "6E_EF_09_00":	#VehicleNFS13_BodyPaint_NormalMap_NoDamage
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "68_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaintMask
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
