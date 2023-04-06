@@ -73,6 +73,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "72_EF_09_00":	#VehicleNFS13_BodyPaint_Livery
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "74_EF_09_00":	#VehicleNFS13_BodyPaint_Lightmap
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "76_EF_09_00":	#VehicleNFS13_BodyPaint
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "78_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_NoDamage
