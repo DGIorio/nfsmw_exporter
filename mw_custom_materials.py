@@ -60,6 +60,8 @@ def custom_shaders():
 	shaders['VehicleNFS13_Rim'] = 'B5_EF_09_00'
 	shaders['Rim'] = 'B5_EF_09_00'
 	shaders['rim'] = 'B5_EF_09_00'
+	shaders['CarbonFiber2'] = '78_EF_09_00'
+	shaders['carbonfiber2'] = '78_EF_09_00'
 	
 	return shaders
 
@@ -71,6 +73,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "68_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaintMask
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "70_EF_09_00":	#VehicleNFS13_BodyPaint_Livery_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "72_EF_09_00":	#VehicleNFS13_BodyPaint_Livery
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "74_EF_09_00":	#VehicleNFS13_BodyPaint_Lightmap
@@ -89,6 +93,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "8A_EF_09_00":	#VehicleNFS13_Body_Alpha1bit_NormalMap_Textured_NoDamage
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "90_EF_09_00":	#VehicleNFS13_Body_Alpha_NormalMap_DoubleSided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "92_EF_09_00":	#VehicleNFS13_Body
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "A1_EF_09_00":	#VehicleNFS13_Refraction
@@ -105,6 +111,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "B9_EF_09_00":	#VehicleNFS13_Wheel_Alpha_Textured_Normalmap_Blurred_Doublesided_PixelAO
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "BB_EF_09_00":	#VehicleNFS13_Wheel_Alpha_Textured_Normalmap_BlurFade
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "BF_EF_09_00":	#VehicleNFS13_Wheel_Alpha1bit_Normalmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "C8_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint_Livery
@@ -131,22 +139,7 @@ def get_default_material_parameters(shader_type):
 	parameters_Data = []
 	parameters_Names = []
 	
-	if shader_type.lower() == "glass":    #A9_EF_09_00
-		parameters_Indices = (1, 2, 5, 6, 7, 3, 8, 4, 0)
-		parameters_Ones = (1, 1, 1, 1, 1, 1, 1, 1, 1)
-		parameters_NamesHash = (42301036, 422585019, 529556121, 1441692693, 1444230008, 1989249925, 2342768594, 2580468578, 2907884810)
-		parameters_Data = [(0.0, 0.0, 0.0, 0.0),
-						   (1.0, 0.0, 0.0, 0.0),
-						   (0.0010000000474974513, 0.0, 0.0, 0.0),
-						   (0.09000000357627869, 0.0, 0.0, 0.0),
-						   (0.009721217676997185, 0.009134058840572834, 0.00802319310605526, 0.8767699003219604),
-						   (0.0, 0.0, 0.0, 0.0),
-						   (0.16200000047683716, 0.0, 0.0, 0.0),
-						   (0.12770847976207733, 0.12770847976207733, 0.12770847976207733, 1.0),
-						   (1.0, 5.0, 1.0, 0.0)]
-		parameters_Names = ['DebugOverride_GlassVolumeColour', 'FresnelFactor', 'MaterialShadowMapBias', 'OpacityMin', 'PbrMaterialDirtColour', 'PbrMaterialDustColour', 'SurfaceSoftness', 'mCrackedGlassSpecularColour', 'mCrackedGlassSpecularControls']
-	
-	elif shader_type.lower() == "glass_black":    #A9_EF_09_00
+	if shader_type.lower() == "glass" or shader_type.lower() == "glass_black":	#A9_EF_09_00
 		parameters_Indices = (1, 2, 5, 6, 7, 3, 8, 4, 0)
 		parameters_Ones = (1, 1, 1, 1, 1, 1, 1, 1, 1)
 		parameters_NamesHash = (42301036, 422585019, 529556121, 1441692693, 1444230008, 1989249925, 2342768594, 2580468578, 2907884810)
@@ -243,7 +236,7 @@ def get_default_material_parameters(shader_type):
 						   (1.0, 0.0, 0.0, 0.0)]
 		parameters_Names = ['LightmappedLightsGreenChannelColour', 'PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular', 'PbrMaterialRoughness', 'PbrMaterialScuffColour', 'PbrMaterialScuffSettings', 'PbrMaterialSpecularColour', 'mSelfIlluminationMultiplier']
 	
-	elif shader_type.lower() == "dullplastic" or shader_type.lower() == "dull_plastic":    #92_EF_09_00
+	elif shader_type.lower() == "dullplastic" or shader_type.lower() == "dull_plastic":	#92_EF_09_00
 		parameters_Indices = (2, 4, 5, 6, 3, 1, 0)
 		parameters_Ones = (1, 1, 1, 1, 1, 1, 1)
 		parameters_NamesHash = (108602291, 825258624, 1236639422, 1491944071, 2428116513, 3057425025, 3447747285)
@@ -256,7 +249,7 @@ def get_default_material_parameters(shader_type):
 						   (0.056833628565073, 0.0625, 0.056833628565073, 1.0)]
 		parameters_Names = ['PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular', 'PbrMaterialDiffuseColour', 'PbrMaterialRoughness', 'PbrMaterialScuffColour', 'PbrMaterialScuffSettings', 'PbrMaterialSpecularColour']
 	
-	elif shader_type.lower() == "interior" or shader_type == "VehicleNFS13_Interior":    #9B_EF_09_00
+	elif shader_type.lower() == "interior" or shader_type == "VehicleNFS13_Interior":	#9B_EF_09_00
 		parameters_Indices = (3, 0, 2, 1)
 		parameters_Ones = (1, 1, 1, 1)
 		parameters_NamesHash = (843472246, 2143891951, 3057425025, 3447747285)
@@ -266,7 +259,7 @@ def get_default_material_parameters(shader_type):
 						   (1.0, 0.0, 0.0, 0.0)]
 		parameters_Names = ['LightmappedLightsGreenChannelColour', 'PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular', 'mSelfIlluminationMultiplier']
 	
-	elif shader_type.lower() == "caliper" or shader_type.lower() == "caliper_textured" or shader_type == "VehicleNFS13_Caliper":    #B5_EF_09_00
+	elif shader_type.lower() == "caliper" or shader_type.lower() == "caliper_textured" or shader_type == "VehicleNFS13_Caliper":	#B5_EF_09_00
 		parameters_Indices = (4, 3, 2, 1, 0)
 		parameters_Ones = (1, 1, 1, 1, 1)
 		parameters_NamesHash = (529556121, 2580468578, 3057425025, 3447747285, 3998419168)
@@ -282,26 +275,34 @@ def get_default_material_parameters(shader_type):
 		parameters_Ones = (1, 1, 1, 1, 1)
 		parameters_NamesHash = (529556121, 2580468578, 3057425025, 3447747285, 3998419168)
 		parameters_Data = [(0.0, 0.0, 0.0, 0.0),
-							(0.03099999949336052, 0.0, 0.0, 0.0),
-							(0.015208514407277107, 0.0, 0.0, 0.0),
-							(0.20000000298023224, 0.20000000298023224, 0.20000000298023224, 0.10999999940395355),
-							(0.041999999433755875, 0.03500000014901161, 0.028999999165534973, 0.25)]
+						   (0.03099999949336052, 0.0, 0.0, 0.0),
+						   (0.015208514407277107, 0.0, 0.0, 0.0),
+						   (0.20000000298023224, 0.20000000298023224, 0.20000000298023224, 0.10999999940395355),
+						   (0.041999999433755875, 0.03500000014901161, 0.028999999165534973, 0.25)]
 		parameters_Names = ['g_flipUvsOnFlippedTechnique', 'PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular', 'PbrMaterialDirtColour', 'PbrMaterialDustColour']
 	
-	elif shader_type.lower() == "chassis" or shader_type == "VehicleNFS13_Chassis":    #78_EF_09_00
+	elif shader_type.lower() == "chassis" or shader_type == "VehicleNFS13_Chassis":	#78_EF_09_00
 		parameters_Indices = (1, 0)
 		parameters_Ones = (1, 1)
 		parameters_NamesHash = (3057425025, 3447747285)
 		parameters_Data = [(0.01856684684753418, 0.0, 0.0, 0.0),
-							(0.00039999998989515007, 0.0, 0.0, 0.0)]
+						   (0.00039999998989515007, 0.0, 0.0, 0.0)]
 		parameters_Names = ['PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular']
 	
-	elif shader_type.lower() == "carbonfiber" or shader_type == "VehicleNFS13_Carbonfiber":    #78_EF_09_00
+	elif shader_type.lower() == "carbonfiber" or shader_type == "VehicleNFS13_Carbonfiber":	#78_EF_09_00
 		parameters_Indices = (1, 0)
 		parameters_Ones = (1, 1)
 		parameters_NamesHash = (3057425025, 3447747285)
 		parameters_Data = [(0.0, 0.0, 0.0, 0.0),
-							(0.011612244881689548, 0.0, 0.0, 0.0)]
+						   (0.011612244881689548, 0.0, 0.0, 0.0)]
+		parameters_Names = ['PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular']
+	
+	elif shader_type.lower() == "carbonfiber2":	#78_EF_09_00
+		parameters_Indices = (1, 0)
+		parameters_Ones = (1, 1)
+		parameters_NamesHash = (3057425025, 3447747285)
+		parameters_Data = [(1.0, 0.0, 0.0, 0.0),
+						   (0.00039999998989515007, 0.0, 0.0, 0.0)]
 		parameters_Names = ['PbrMaterialClearcoatFresnel', 'PbrMaterialClearcoatSpecular']
 
 	else:
@@ -371,6 +372,13 @@ def	get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type):
 			mRasterId = "3A_8D_0D_00"
 		elif raster_type == "SpecularTextureSampler":
 			mRasterId = "3C_8D_0D_00"
+	elif shader_type.lower() == "carbonfiber2":
+		if raster_type == "NormalTextureSampler":
+			mRasterId = "76_28_10_00"
+		elif raster_type == "DiffuseTextureSampler":
+			mRasterId = "E5_30_0E_00"
+		elif raster_type == "SpecularTextureSampler":
+			mRasterId = "77_28_10_00"
 	
 	elif resource_type == "InstanceList":
 		mRasterId = "1D_F3_05_00"
