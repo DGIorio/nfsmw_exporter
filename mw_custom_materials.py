@@ -62,6 +62,8 @@ def custom_shaders():
 	shaders['rim'] = 'B5_EF_09_00'
 	shaders['CarbonFiber2'] = '78_EF_09_00'
 	shaders['carbonfiber2'] = '78_EF_09_00'
+	shaders['Character'] = 'AA_D4_10_00'
+	shaders['Driver'] = 'AA_D4_10_00'
 	
 	return shaders
 
