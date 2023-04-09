@@ -555,8 +555,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					try:
 						is_spinnable = object["spinnable"]
 					except:
-						print("WARNING: object %s is missing parameter %s. Assuming as True." % (object.name, '"spinnable"'))
-						is_spinnable = True
+						print("WARNING: object %s is missing parameter %s. Assuming as True (1)." % (object.name, '"spinnable"'))
+						is_spinnable = 1
 					
 					try:
 						object_placement = object["placement"].lower()
@@ -596,6 +596,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					#PolySoupBox = [[min(bboxX), min(bboxY), min(bboxZ)], [max(bboxX), max(bboxY), max(bboxZ)], mValidMasks]
 					maiVertexOffsets = mTransform.translation
 					mfComprGranularity = mTransform.to_scale()[0]
+					if mTransform.to_scale()[0] != mTransform.to_scale()[1] or mTransform.to_scale()[0] != mTransform.to_scale()[2] or mTransform.to_scale()[1] != mTransform.to_scale()[2]:
+						print("WARNING: object %s have different scales per axis. Consider applying the scale." % object.name)
 					
 					status, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads = read_polygonsoup_object(child, maiVertexOffsets, mfComprGranularity)
 					if status == 1:
@@ -969,6 +971,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 							parameters_Indices_fixed = [8, 10, 5, 7, 1, 9, 6, 2, 3, 4, 0]
 						elif shader_type == "PlotPBR_AO_Normal_Specular_Opaque_Lightmap_Singlesided_Rough":
 							parameters_Indices_fixed = [9, 11, 5, 7, 8, 1, 10, 6, 2, 3, 4, 0]
+						elif shader_type == "Flag_Opaque_Doublesided":
+							parameters_Indices_fixed = [7, 6, 4, 2, 0, 3, 5, 1, 8]
 						
 						# if len(parameters_Indices) == len(parameters_Indices_fixed):
 							# parameters_Order = [parameters_Indices.index(index) for index in parameters_Indices_fixed]
@@ -1149,7 +1153,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 									
 									is_raster_shared_asset = True
 									raster_path = ""
-									raster_properties = []
+									raster_properties = [0x30]
 									if resource_type == "InstanceList":
 										mRasterId = "1D_F3_05_00"
 									else:
@@ -1208,6 +1212,13 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				
 				mu8NumRenderables = len(renderables_info)
 				mu8NumStates = 5
+				try:
+					unknown_0x19 = object["unknown_0x19"]
+				except:
+					if resource_type == "InstanceList":
+						print("WARNING: object %s is missing parameter %s. Assuming some value." % (object.name, '"unknown_0x19"'))
+					unknown_0x19 = 0
+				
 				
 				has_tint_data = 0
 				TintData = []
@@ -1372,7 +1383,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								if is_packed == True:
 									raster.pack()
 				
-				model_properties = [mu8NumRenderables, mu8NumStates, TintData]
+				model_properties = [mu8NumRenderables, mu8NumStates, TintData, unknown_0x19]
 				
 				models.append([mModelId, [renderables_info, model_properties], is_model_shared_asset])
 			
@@ -2312,7 +2323,8 @@ def read_polygonsoup_object(object, translation, scale):
 			
 			mau8VertexIndices = []
 			for vert in face.verts:
-				vert_index = PolygonSoupVertices.index([vert_co*scale for vert_co in vert.co])
+				#vert_index = PolygonSoupVertices.index([vert_co*scale for vert_co in vert.co])
+				vert_index = PolygonSoupVertices.index([vert_co*scale + translation[i] for i, vert_co in enumerate(vert.co)])
 				mau8VertexIndices.append(vert_index)
 			
 			if None in [edge_cosine1, edge_cosine2, edge_cosine3, edge_cosine4]:
@@ -2878,7 +2890,7 @@ def write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, insta
 		f.write(struct.pack('<i', mppModels))
 		f.write(struct.pack('<i', 0))
 		f.write(struct.pack('<i', 0))
-		f.write(struct.pack('<i', mNumModels))		# Or always 0x1
+		f.write(struct.pack('<i', mNumModels))
 		f.write(struct.pack('<B', mNumResources))
 		f.write(struct.pack('<B', 0))
 		f.write(struct.pack('<B', mppAllocatedSpace))
@@ -2926,6 +2938,7 @@ def write_model(model_path, model, resource_type):	#ok
 		mu8Flags = 0
 		mu8NumStates = model_properties[1]
 		TintData = model_properties[2]
+		unknown_0x19 = model_properties[3]
 		
 		if mu8NumRenderables == 1:
 			mu8NumStates = 1
@@ -3057,7 +3070,7 @@ def write_model(model_path, model, resource_type):	#ok
 		f.write(struct.pack('<B', mu8NumStates))
 		f.write(struct.pack('<B', mu8VersionNumber))
 		f.write(struct.pack('<B', muNumLodDistances))
-		f.write(struct.pack('<B', 0))
+		f.write(struct.pack('<B', unknown_0x19))
 		f.write(struct.pack('<B', 0))
 		f.write(struct.pack('<B', 0))
 		
@@ -3557,8 +3570,12 @@ def write_raster(raster_path, raster): #ok
 			create_displacementsampler(raster_source_path)
 		elif raster[0] == "4F_1F_A7_2D":
 			create_blacksampler(raster_source_path)
+		elif raster[0] == "A2_70_79_2C":
+			create_whitesampler(raster_source_path)
+		elif raster[0] == "06_88_13_FF":
+			create_normalsampler(raster_source_path)
 		else:
-			create_displacementsampler(raster_source_path)
+			create_blacksampler(raster_source_path)
 	
 	with open(raster_source_path, "rb") as f:
 		DDS_MAGIC = struct.unpack("<I", f.read(0x4))[0]
@@ -4036,7 +4053,7 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 			
 			is_spinnable = ''
 			for j, instance in enumerate(group):
-				is_spinnable += str(instance[1][2])
+				is_spinnable += str(int(instance[1][2]))
 				mResourceIds.append(instance[1][0])
 				muOffsets.append(mpWheelAllocateSpace[object_placements[i]] + j*0x4)
 			
@@ -4520,6 +4537,46 @@ def create_blacksampler(raster_source_path):
 		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 		for i in range(0, 17):
 			f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+	
+	return 0
+
+
+def create_whitesampler(raster_source_path):
+	os.makedirs(os.path.dirname(raster_source_path), exist_ok = True)
+	
+	with open(raster_source_path, "wb") as f:
+		f.write(b'\x44\x44\x53\x20\x7C\x00\x00\x00\x07\x10\x0A\x00\x08\x00\x00\x00')
+		f.write(b'\x08\x00\x00\x00\x20\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00')
+		f.write(b'\x04\x00\x00\x00\x44\x58\x54\x31\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x10\x40\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		for i in range(0, 7):
+			f.write(b'\xFF\xFF\xFF\xFF\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00')
+	
+	return 0
+
+
+def create_normalsampler(raster_source_path):
+	os.makedirs(os.path.dirname(raster_source_path), exist_ok = True)
+	
+	with open(raster_source_path, "wb") as f:
+		f.write(b'\x44\x44\x53\x20\x7C\x00\x00\x00\x07\x10\x0A\x00\x08\x00\x00\x00')
+		f.write(b'\x08\x00\x00\x00\x20\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00')
+		f.write(b'\x04\x00\x00\x00\x44\x58\x54\x31\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x10\x40\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		
+		f.write(b'\x1E\x84\xFE\x7B\xFB\x75\xBB\x75\x1E\x84\xFE\x7B\xAA\xBF\xAA\xFF')
+		f.write(b'\xFE\x83\x1E\x7C\xFF\xAE\xFF\xAB\x1E\x84\xFE\x7B\xAA\xFF\xAA\xFF')
+		f.write(b'\x1E\x84\xFE\x7B\xB5\xF5\xFB\xFA\xFE\x83\xFE\x7B\xDD\xEE\xDD\xEE')
+		f.write(b'\xFE\x7B\xFE\x7B\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 	
 	return 0
 
