@@ -320,9 +320,11 @@ def get_default_material_parameters(shader_type):
 def	get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type):
 	is_raster_shared_asset = True
 	raster_path = ""
-	raster_properties = []
+	raster_properties = [0x30]
 	if resource_type == "InstanceList":
 		mRasterId = "1D_F3_05_00"
+	elif resource_type == "CharacterSpec":
+		mRasterId = "A2_70_79_2C"
 	else:
 		mRasterId = "30_A7_06_00"
 	
@@ -402,6 +404,29 @@ def	get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type):
 			mRasterId = "A4_57_09_00"
 		elif raster_type == "IlluminanceTextureSampler":
 			mRasterId = "4F_1F_A7_2D"	#black
+			raster_properties = [48]
+			is_raster_shared_asset = False
+			raster_path = "create_texture"
+	
+	elif resource_type == "CharacterSpec":
+		if raster_type == "DiffuseTextureSampler":
+			mRasterId = "A2_70_79_2C"	#white
+			raster_properties = [48]
+			is_raster_shared_asset = False
+			raster_path = "create_texture"
+		elif raster_type == "NormalTextureSampler":
+			mRasterId = "06_88_13_FF" #normal
+			raster_properties = [32]
+			is_raster_shared_asset = False
+			raster_path = "create_texture"
+		elif raster_type == "SpecularTextureSampler":
+			mRasterId = "A2_70_79_2C"	#white
+			raster_properties = [32]
+			is_raster_shared_asset = False
+			raster_path = "create_texture"
+		elif raster_type == "AoSpecMapTextureSampler":
+			mRasterId = "A2_70_79_2C"	#white
+			raster_properties = [32]
 			is_raster_shared_asset = False
 			raster_path = "create_texture"
 	
@@ -442,4 +467,3 @@ def	get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type):
 			#mRasterId = "30_A7_06_00"
 	
 	return (mRasterId, raster_properties, is_raster_shared_asset, raster_path)
-
