@@ -128,12 +128,70 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "9C_D4_10_00":	#VehicleNFS13_Body_Textured_NormalMap_Lightmap_Licenseplate
 		sampler_states_info = ['74_2A_D8_6D', '60_7D_0D_2E', '7F_77_6A_0A', '7F_77_6A_0A']
-	elif mShaderId == "AA_D4_10_00":	#CharacterNew_Opaque_Textured_Normal_Spec_VertexAO
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "FC_BF_19_00":	#VehicleNFS13_Wheel_Alpha1bit_Textured_Normalmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "08_15_1F_00":	#VehicleNFS13_Body_Driver
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
+	
+	#InstanceList
+	elif mShaderId == "32_78_00_00":	#Fence_GreyScale_Doublesided
+		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "40_78_00_00":	#Sign_RetroReflective
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "43_78_00_00":	#Tree_Translucent_1Bit_Doublesided_InstanceTint
+		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "4F_78_00_00":	#World_Diffuse_Specular_FlashingNeon_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "4D_78_00_00":	#World_Diffuse_Specular_1Bit_Lightmap_Doublesided
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "50_78_00_00":	#World_Diffuse_Specular_Illuminance_Singlesided
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "59_78_00_00":	#World_Diffuse_Specular_Singlesided
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "34_79_00_00":	#Diffuse_1Bit_Doublesided
+		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "3C_79_00_00":	#Diffuse_Opaque_Singlesided
+		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "23_A7_06_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "3D_A7_06_00":	#WorldPBR_FloatingDecal_Diffuse_Normal_Specular_Reflective_AO_1Bit_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "F8_12_07_00":	#Deflicker_WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "CB_13_07_00":	#WorldPBR_Building_LitWindows_SliderBlend_Reflective_AO_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "1B_14_07_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Lightmap_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "1F_14_07_00":	#PlotPBR_AO_Normal_Specular_Opaque_Lightmap_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "A2_0D_08_00":	#WorldPBR_Diffuse_Normal_ColouredSpecular_Reflective_AO_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "9E_09_09_00":	#Skin_WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "0B_85_0F_00":	#World_GbufferBlend_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "23_85_0F_00":	#World_Diffuse_Specular_Singlesided_InstanceAdditive
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "2F_86_0F_00":	#WorldPBR_Diffuse_Normal_ColouredSpecular_Reflective_AO_Doublesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "32_87_0F_00":	#WorldPBR_Horizontal_PlanarReflection_VertexLit_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "34_87_0F_00":	#WorldPBR_Horizontal_PlanarReflection_VertexLit_Lightmap_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "53_87_0F_00":	#PlotPBR_DriveableGrass_AO_Normal_Specular_Opaque_Lightmap_Singlesided_Rough
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "56_87_0F_00":	#PlotPBR_DriveableGrass_AO_Normal_Specular_Opaque_Singlesided_Rough
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "3F_EB_0F_00":	#World_Diffuse_Specular_PersistentIlluminance_Singlesided
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "91_7D_15_00":	#WorldPBR_Diffuse_Normal_Specular_InstanceTint_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "64_AE_19_00":	#WorldPBR_NormalSpecInMap3_Normal_Specular_Illuminance_AO_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	
+	#CharacterSpec
+	elif mShaderId == "AA_D4_10_00":	#CharacterNew_Opaque_Textured_Normal_Spec_VertexAO
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	
 	return sampler_states_info
 
