@@ -238,6 +238,10 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 	elif mShaderId == "AA_D4_10_00":	#CharacterNew_Opaque_Textured_Normal_Spec_VertexAO
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	
+	#Weapons
+	elif mShaderId == "D7_16_14_00":	#Skin_Weapon_World_Diffuse_Specular_Singlesided
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	
 	return sampler_states_info
 
 
