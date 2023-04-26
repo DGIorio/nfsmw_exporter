@@ -147,6 +147,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "43_78_00_00":	#Tree_Translucent_1Bit_Doublesided_InstanceTint
 		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "46_78_00_00":	#Water_Proto_Cheap
+		sampler_states_info = ['75_35_F0_81', 'E4_FD_1A_F9']
 	elif mShaderId == "4D_78_00_00":	#World_Diffuse_Specular_1Bit_Lightmap_Doublesided
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "4F_78_00_00":	#World_Diffuse_Specular_FlashingNeon_Singlesided
@@ -155,6 +157,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "59_78_00_00":	#World_Diffuse_Specular_Singlesided
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "2B_79_00_00":	#CatsEyes
+		sampler_states_info = ['52_B0_B5_0B']
 	elif mShaderId == "2C_79_00_00":	#CatsEyesGeometry
 		sampler_states_info = ['D5_4F_91_2F']
 	elif mShaderId == "34_79_00_00":	#Diffuse_1Bit_Doublesided
@@ -163,6 +167,10 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['D5_4F_91_2F']
 	elif mShaderId == "3C_79_00_00":	#Diffuse_Opaque_Singlesided
 		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "43_79_00_00":	#DriveableSurface
+		sampler_states_info = ['75_35_F0_81', 'B8_62_7B_52', 'F3_7E_68_F0', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0']
+	elif mShaderId == "4B_79_00_00":	#DriveableSurface_DEPRECATED_Line_DirectionV
+		sampler_states_info = ['75_35_F0_81', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'F3_7E_68_F0', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0']
 	elif mShaderId == "C8_81_06_00":	#WorldPBR_Normal_TextureBlend_Reflective_AO_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "23_A7_06_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Singlesided
@@ -189,6 +197,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "1F_14_07_00":	#PlotPBR_AO_Normal_Specular_Opaque_Lightmap_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "22_14_07_00":	#PlotPBR_DriveableGrass_AO_Normal_Specular_Opaque_Lightmap_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "7A_14_07_00":	#WorldPBR_Building_LitWindows_SliderBlend_Reflective_AO_Singlesided_Lightmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "7D_14_07_00":	#WorldPBR_Diffuse_LOD2LitWindows_Singlesided_Lightmap
@@ -201,6 +211,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "35_0E_08_00":	#Water_Opaque_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "37_0E_08_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Doublesided
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "9E_09_09_00":	#Skin_WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "FE_CF_0D_00":	#Deflicker_WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Doublesided
