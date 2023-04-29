@@ -181,6 +181,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "23_A7_06_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "37_A7_06_00":	#DriveableSurface_FloatingDecal_1Bit
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "3B_A7_06_00":	#WorldPBR_FloatingDecal_Diffuse_Normal_Specular_Reflective_AO_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "3D_A7_06_00":	#WorldPBR_FloatingDecal_Diffuse_Normal_Specular_Reflective_AO_1Bit_Singlesided
@@ -321,12 +323,20 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "AA_45_1C_00":	#World_UVScrolling_Normal_Specular_1Bit_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "BB_33_23_00":	#Glass_Interior_Greyscale_Singlesided
+		sampler_states_info = ['9E_08_C6_52', '7F_77_6A_0A']
 	
 	#CharacterSpec
+	elif mShaderId == "2E_79_00_00":	#Character_Greyscale_Textured_Doublesided_Skin
+		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "2F_79_00_00":	#Character_Opaque_Textured_NormalMap_SpecMap_Skin
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "AA_D4_10_00":	#CharacterNew_Opaque_Textured_Normal_Spec_VertexAO
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	
 	#Weapons
+	elif mShaderId == "3B_78_00_00":	#HelicopterRotor_GreyScale_Doublesided
+		sampler_states_info = ['D5_4F_91_2F']
 	elif mShaderId == "D7_16_14_00":	#Skin_Weapon_World_Diffuse_Specular_Singlesided
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	
