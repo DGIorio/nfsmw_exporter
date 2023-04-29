@@ -123,6 +123,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "BB_EF_09_00":	#VehicleNFS13_Wheel_Alpha_Textured_Normalmap_BlurFade
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "BD_EF_09_00":	#VehicleNFS13_Wheel_Alpha_Textured_Normalmap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "BF_EF_09_00":	#VehicleNFS13_Wheel_Alpha1bit_Normalmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "C8_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint_Livery
