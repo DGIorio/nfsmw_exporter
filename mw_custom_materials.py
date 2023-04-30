@@ -143,6 +143,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "2A_78_00_00":	#DriveableSurface_Lightmap
 		sampler_states_info = ['75_35_F0_81', '7F_77_6A_0A', 'F3_7E_68_F0', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0']
+	elif mShaderId == "2F_78_00_00":	#DriveableSurface_DEPRECATED_RetroreflectivePaint_Lightmap
+		sampler_states_info = ['75_35_F0_81', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'F3_7E_68_F0', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0']
 	elif mShaderId == "32_78_00_00":	#Fence_GreyScale_Doublesided
 		sampler_states_info = ['D5_4F_91_2F']
 	elif mShaderId == "34_78_00_00":	#Flag_Opaque_Doublesided
@@ -185,6 +187,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "37_A7_06_00":	#DriveableSurface_FloatingDecal_1Bit
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "39_A7_06_00":	#WorldPBR_FloatingDecal_RetroReflectivePaint_Normal_Specular_Reflective_AO_1Bit_Singlesided
+		sampler_states_info = ['7F_77_6A_0A', '75_35_F0_81', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "3B_A7_06_00":	#WorldPBR_FloatingDecal_Diffuse_Normal_Specular_Reflective_AO_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "3D_A7_06_00":	#WorldPBR_FloatingDecal_Diffuse_Normal_Specular_Reflective_AO_1Bit_Singlesided
@@ -283,6 +287,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['F3_7E_68_F0', '75_35_F0_81', 'F3_7E_68_F0', '7F_77_6A_0A']
 	elif mShaderId == "BB_D4_10_00":	#Tree_Translucent_1Bit_Doublesided
 		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "C5_C9_12_00":	#DriveableSurface_Decal_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', '75_35_F0_81', '7F_77_6A_0A', '7F_77_6A_0A', 'F3_7E_68_F0', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0']
 	elif mShaderId == "80_17_14_00":	#World_SmashedBillboard_InstanceDiffuse_Specular_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "71_8C_14_00":	#WorldPBR_Diffuse_Normal_ColouredSpecular_Reflective_AO_Doublesided_Lightmap
@@ -339,6 +345,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 	#Weapons
 	elif mShaderId == "3B_78_00_00":	#HelicopterRotor_GreyScale_Doublesided
 		sampler_states_info = ['D5_4F_91_2F']
+	elif mShaderId == "D5_16_14_00":	#World_Weapon_Diffuse_Specular_Singlesided
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "D7_16_14_00":	#Skin_Weapon_World_Diffuse_Specular_Singlesided
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	
