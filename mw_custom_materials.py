@@ -79,10 +79,14 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 	sampler_states_info = ["7F_77_6A_0A"]*num_sampler_states_shader
 	
 	#GraphicsSpec
-	if mShaderId == "6E_EF_09_00":	#VehicleNFS13_BodyPaint_NormalMap_NoDamage
-		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
+	if mShaderId == "66_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaintMask_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "68_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaintMask
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "6C_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "6E_EF_09_00":	#VehicleNFS13_BodyPaint_NormalMap_NoDamage
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "70_EF_09_00":	#VehicleNFS13_BodyPaint_Livery_Lightmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "72_EF_09_00":	#VehicleNFS13_BodyPaint_Livery
@@ -281,6 +285,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "5D_87_0F_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_1Bit_Lightmap_Doublesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "62_87_0F_00":	#WorldPBR_Building_PersistentLitWindows_InstanceAO_InstanceTint_Singlesided_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', '53_7A_EF_9A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "3F_EB_0F_00":	#World_Diffuse_Specular_PersistentIlluminance_Singlesided
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "41_EB_0F_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_1Bit_PersistentLightmap_Singlesided
@@ -291,6 +297,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', '75_35_F0_81', '7F_77_6A_0A', '7F_77_6A_0A', 'F3_7E_68_F0', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0']
 	elif mShaderId == "80_17_14_00":	#World_SmashedBillboard_InstanceDiffuse_Specular_Singlesided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "6E_8C_14_00":	#WorldPBR_Diffuse_Normal_ColouredSpecular_Reflective_AO_1Bit_Doublesided_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "71_8C_14_00":	#WorldPBR_Diffuse_Normal_ColouredSpecular_Reflective_AO_Doublesided_Lightmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "80_7C_15_00":	#PlotPBR_AO_Normal_Specular_Opaque_Lightmap_Singlesided_Rough
