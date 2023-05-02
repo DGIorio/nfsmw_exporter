@@ -83,6 +83,8 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "68_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaintMask
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "6A_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint_Lightmap
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "6C_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "6E_EF_09_00":	#VehicleNFS13_BodyPaint_NormalMap_NoDamage
@@ -103,16 +105,32 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "7E_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_Lightmap
 		sampler_states_info = ['74_2A_D8_6D', '60_7D_0D_2E', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "80_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "82_EF_09_00":	#VehicleNFS13_Body_Textured_Emissive_NoDamage_NoEffects
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "84_EF_09_00":	#VehicleNFS13_Body_Textured_Lightmap
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "86_EF_09_00":	#VehicleNFS13_Body_Textured
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "88_EF_09_00":	#VehicleNFS13_Body_Lightmap
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "8A_EF_09_00":	#VehicleNFS13_Body_Alpha1bit_NormalMap_Textured_NoDamage
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "8C_EF_09_00":	#VehicleNFS13_Body_Alpha1bit_NormalMap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "8E_EF_09_00":	#VehicleNFS13_Body_Alpha_NormalMap_Textured_NoDamage
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "90_EF_09_00":	#VehicleNFS13_Body_Alpha_NormalMap_DoubleSided
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "92_EF_09_00":	#VehicleNFS13_Body
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "9B_EF_09_00":	#VehicleNFS13_Body_Textured_NormalMap_Emissive_NoDamage_NoEffects
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "A1_EF_09_00":	#VehicleNFS13_Refraction
 		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+	elif mShaderId == "A3_EF_09_00":	#VehicleNFS13_Glass_Textured
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "A5_EF_09_00":	#VehicleNFS13_Glass_Doublesided
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F']
 	elif mShaderId == "A7_EF_09_00":	#VehicleNFS13_Glass_Textured_Lightmap
@@ -131,10 +149,14 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "BF_EF_09_00":	#VehicleNFS13_Wheel_Alpha1bit_Normalmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
+	elif mShaderId == "C6_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint_Livery_Lightmap
+		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "C8_EF_09_00":	#VehicleNFS13_BodyPaint_TwoPaint_Livery
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "BB_5F_0F_00":	#VehicleNFS13_Wheel_Tyre_Textured_Normalmap_Blurred
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F']
+	elif mShaderId == "18_99_10_00":	#VehicleNFS13_Body_Textured_NoDamage_NoEffects
+		sampler_states_info = ['D5_4F_91_2F', '7F_77_6A_0A']
 	elif mShaderId == "9C_D4_10_00":	#VehicleNFS13_Body_Textured_NormalMap_Lightmap_Licenseplate
 		sampler_states_info = ['74_2A_D8_6D', '60_7D_0D_2E', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "FC_BF_19_00":	#VehicleNFS13_Wheel_Alpha1bit_Textured_Normalmap
@@ -324,7 +346,7 @@ def get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader
 	elif mShaderId == "77_AE_19_00":	#PlotPBR_TilingDecal_Opaque_Lightmap_Singlesided_Rough
 		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', '75_35_F0_81', '7F_77_6A_0A', 'F3_7E_68_F0', '7F_77_6A_0A', 'F3_7E_68_F0', 'F3_7E_68_F0']
 	elif mShaderId == "7D_AE_19_00":	#WorldPBR_Normal_TextureBlend_Reflective_AO_Lightmap_Singlesided
-		sampler_states_info = ['7F_77_6A_0A', 'D6_5D_D9_46', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
+		sampler_states_info = ['7F_77_6A_0A', '7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "7E_AE_19_00":	#WorldPBR_Building_LitWindows_SliderBlend_Reflective_AO_InstanceIntensity_Singlesided_Lightmap
 		sampler_states_info = ['7F_77_6A_0A', 'D5_4F_91_2F', '7F_77_6A_0A', '7F_77_6A_0A']
 	elif mShaderId == "82_AE_19_00":	#WorldPBR_Diffuse_Normal_Specular_Reflective_AO_InstanceIntensity_Lightmap_Singlesided
