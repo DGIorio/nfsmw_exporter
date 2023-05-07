@@ -6,6 +6,9 @@
 
 ## TO DO
 """
+- Add shared materials to library
+- Verify textures with .001
+- Add verbose levels to hide warnings
 - export probs and other instance types from tracks
 - vehicle: modify the coronas file for adding or removing effects
 - find a better default color2
@@ -18,7 +21,7 @@ bl_info = {
 	"name": "Export to Need for Speed Most Wanted (2012) models format (.dat)",
 	"description": "Save objects as Need for Speed Most Wanted files",
 	"author": "DGIorio",
-	"version": (3, 0),
+	"version": (3, 1),
 	"blender": (3, 1, 0),
 	"location": "File > Export > Need for Speed Most Wanted (2012) (.dat)",
 	"warning": "",
@@ -47,6 +50,8 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 import os
 import time
 import struct
+import sys
+import traceback
 import numpy as np
 import shutil
 import zlib
@@ -217,7 +222,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				print("ERROR: main_collection's name is in the wrong format. Use a number in integer format.")
 			
 			try:
-				mSkeletonID = object["SkeletonID"]
+				mSkeletonID = main_collection["SkeletonID"]
 			except:
 				mSkeletonID = 0x001777E6
 			
@@ -232,7 +237,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					mSkeletonID = 0x001777E6
 			
 			try:
-				mAnimationListID = object["AnimationListID"]
+				mAnimationListID = main_collection["AnimationListID"]
 			except:
 				mAnimationListID = 0x001777E8
 			
@@ -599,7 +604,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					if mTransform.to_scale()[0] != mTransform.to_scale()[1] or mTransform.to_scale()[0] != mTransform.to_scale()[2] or mTransform.to_scale()[1] != mTransform.to_scale()[2]:
 						print("WARNING: object %s have different scales per axis. Consider applying the scale." % object.name)
 					
-					status, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads = read_polygonsoup_object(child, maiVertexOffsets, mfComprGranularity)
+					status, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads = read_polygonsoup_object(child, maiVertexOffsets, mfComprGranularity, resource_type)
 					if status == 1:
 						return {"CANCELLED"}
 					
@@ -623,6 +628,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				elif resource_type_child == "Character" or resource_type_child == "Driver":
 					mTransform = Matrix(np.linalg.inv(m) @ object.matrix_world)
 					characterOffset = mTransform.translation
+					#characterOffset[1] = -characterOffset[1]
 					
 					try:
 						mCharacterSpecID = object["CharacterSpecID"]
@@ -691,6 +697,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						child.rotation_mode = 'QUATERNION'
 						effectRotation = [0.0, 0.0, 0.0, 1.0]
 						
+						#effectRotation = mTransform.to_quaternion()
 						effectRotation[3] = mTransform.to_quaternion()[0]
 						effectRotation[0] = mTransform.to_quaternion()[1]
 						effectRotation[1] = mTransform.to_quaternion()[2]
@@ -743,12 +750,20 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				renderables_info = []
 				
 				num_objects = 0
+				renderable_indices = []
 				for child in object.children:
 					if child.type != "MESH":
 						continue
 					if child.hide_get() == True and ignore_hidden_meshes == True:
 						continue
 					num_objects += 1
+					
+					try:
+						renderable_index = child["renderable_index"]
+					except:
+						print("WARNING: object %s is missing parameter %s. Defining it based on the number of polygons." % (child.name, '"renderable_index"'))
+						renderable_indices.append([child.name, len(child.data.polygons)])
+				renderable_indices.sort(key=lambda x: x[1], reverse=True)
 				
 				if num_objects == 0:
 					# It is an empty dummy, probably a duplicated model making reference to the same renderables
@@ -791,8 +806,13 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						if num_objects == 1:
 							renderable_index = 0
 						else:
-							print("ERROR: object %s is missing parameter %s." % (child.name, '"renderable_index"'))
-							return {"CANCELLED"}
+							#print("ERROR: object %s is missing parameter %s." % (child.name, '"renderable_index"'))
+							#return {"CANCELLED"}
+							for rend_index, rend_list in enumerate(renderable_indices):
+								if rend_list[0] == child.name:
+									renderable_index = rend_index
+									break
+							
 					
 					renderables_info.append([mRenderableId, [renderable_index]])
 					
@@ -824,6 +844,10 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						
 						mat = bpy.data.materials.get(mMaterialId) or bpy.data.materials.get(id_swap(mMaterialId))
 						
+						if mat == None:
+							print("ERROR: material %s returned a NoneType. Check if it is a duplicated material, for example AA_BB_CC_DD.001" % mMaterialId)
+							return {"CANCELLED"}
+						
 						try:
 							is_material_shared_asset = mat["is_shared_asset"]
 						except:
@@ -833,9 +857,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						if is_material_shared_asset == True:
 							material_path = os.path.join(shared_material_dir, mMaterialId + ".dat")
 							if not os.path.isfile(material_path):
-								print("WARNING: %s %s is set as a shared asset although it may not exist on MW2012 PC." % ("material", mMaterialId))
+								print("WARNING: %s %s is set as a shared asset although it may not exist on MW2012 PC. Add it to the library and export again." % ("material", mMaterialId))
 								if debug_shared_not_found == True:
-									print("WARNING: setting %s %s is_shared_asset to False." % ("material", mMaterialId))
+									print("WARNING: setting %s %s is_shared_asset parameter to False." % ("material", mMaterialId))
 									is_material_shared_asset = False
 							else:
 								mShaderId, mSamplerStateIds, = read_material_get_shader_type(material_path)
@@ -908,7 +932,13 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						
 						num_sampler_states = len(sampler_states_info)
 						if num_sampler_states != num_sampler_states_shader:
-							print("WARNING: number of sampler states (%d) on material %s is different from the %d required by the shader %s." % (num_sampler_states, mMaterialId, num_sampler_states_shader, mShaderId))
+							print("WARNING: number of sampler states (%d) on material %s is different from the %d required by the shader %s. Replacing sampler states with default ones." % (num_sampler_states, mMaterialId, num_sampler_states_shader, mShaderId))
+							
+							try:
+								sampler_states_info = get_default_sampler_states(shader_type, mShaderId, num_sampler_states_shader)
+							except:
+								print("WARNING: get_default_sampler_states function not found. Setting 7F_77_6A_0A as default sampler state.")
+								sampler_states_info = ["7F_77_6A_0A"]*num_sampler_states_shader
 						
 						if debug_use_shader_material_parameters == True:
 							parameters_Indices = material_parameters_from_shader[0]
@@ -940,7 +970,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 							for i in range(0, len(parameters_Names)):
 								if parameters_Names[i] in mat:
 									parameters_Data[i] = mat[parameters_Names[i]]
-								elif (parameters_Names[i] == "PbrMaterialDiffuseColour" or parameters_Names[i] == "MaterialColour_SimpleMultiply") and material_color != [] and status != 0:
+								elif (parameters_Names[i] == "PbrMaterialDiffuseColour" or parameters_Names[i] == "MaterialColour_SimpleMultiply" or parameters_Names[i] == "materialDiffuse") and material_color != [] and status != 0:
 									parameters_Data[i] = material_color[:]
 						
 						# Fix the order of the material parameters
@@ -983,17 +1013,17 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 							# parameters_Data = [parameters_Data[i] for i in parameters_Order]
 							# parameters_Names = [parameters_Names[i] for i in parameters_Order]
 						
-						if "g_flipUvsOnFlippedTechnique" in parameters_Names:
-							index = parameters_Names.index("g_flipUvsOnFlippedTechnique")
+						# if "g_flipUvsOnFlippedTechnique" in parameters_Names:
+							# index = parameters_Names.index("g_flipUvsOnFlippedTechnique")
 							
-							parameters_Indices.insert(0, parameters_Indices.pop(index))
-							#parameters_Ones.insert(0, parameters_Ones.pop(index))
-							#parameters_NamesHash.insert(0, parameters_NamesHash.pop(index))
-							parameters_Data.insert(0, parameters_Data.pop(index))
-							parameters_Names.insert(0, parameters_Names.pop(index))
+							# parameters_Indices.insert(0, parameters_Indices.pop(index))
+							# #parameters_Ones.insert(0, parameters_Ones.pop(index))
+							# #parameters_NamesHash.insert(0, parameters_NamesHash.pop(index))
+							# parameters_Data.insert(0, parameters_Data.pop(index))
+							# parameters_Names.insert(0, parameters_Names.pop(index))
 						
-						if parameters_Indices_fixed != []:
-							parameters_Indices = parameters_Indices_fixed[:]
+						# if parameters_Indices_fixed != []:
+							# parameters_Indices = parameters_Indices_fixed[:]
 						
 						material_constants = material_constants_from_shader
 						miChannel = [0]*num_sampler_states_shader
@@ -1532,7 +1562,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				shutil.copytree(library_vehicle_path, directory_path)
 				if len(instances_wheel) > 0:
 					try:
-						clean_model_data(directory_path, True, True)
+						with Suppressor():
+							clean_model_data(directory_path, True, True)
 					except:
 						print("WARNING: clean_model_data function not found. Cleaning original wheel data will not be possible.")
 				#else:
@@ -1680,6 +1711,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					else:
 						print("WARNING: Material %s does not exist on library. Add it manually to the Material folder." %mMaterialId)
 						mResourceIds.append([mMaterialId, "Material", id_to_int(mMaterialId)])
+				elif not os.path.isfile(shared_material_path) and (resource_type == "GraphicsSpec" or resource_type == "CharacterSpec"):
+					print("ERROR: Not possible to move shared material %s. Be sure it is shared or it exists in the game library." %mMaterialId)
 				continue
 			
 			material_path = os.path.join(material_dir, mMaterialId + ".dat")
@@ -1954,8 +1987,9 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 				if mesh.materials[mesh_index] == None:
 					print("ERROR: face without material found on mesh %s." % mesh.name)
 					return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 1)
-				mMaterialId = mesh.materials[mesh_index].name
-				mMaterialIds[mesh_index] = mMaterialId.split(".")[0]
+				material_name = mesh.materials[mesh_index].name
+				#mMaterialIds[mesh_index] = material_name.split(".")[0]
+				mMaterialIds[mesh_index] = material_name				# Not splitting at ".001". Each one is identifyed as a unique material by Blender and so the exporter
 				not_used_material_slots.remove(mesh_index)
 			
 			if len(face.verts) > 3:
@@ -2252,7 +2286,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 	return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 0)
 
 
-def read_polygonsoup_object(object, translation, scale):
+def read_polygonsoup_object(object, translation, scale, resource_type):
 	PolygonSoupVertices = []
 	PolygonSoupPolygons = []
 	PolygonSoupPolygons_triangles = []
@@ -2328,7 +2362,10 @@ def read_polygonsoup_object(object, translation, scale):
 				mau8VertexIndices.append(vert_index)
 			
 			if None in [edge_cosine1, edge_cosine2, edge_cosine3, edge_cosine4]:
-				mau8EdgeCosines = [0xFF, 0xFF, 0xFF, 0xFF]
+				if resource_type == "InstanceList":
+					mau8EdgeCosines = [0x0, 0x0, 0x0, 0x0]
+				else:
+					mau8EdgeCosines = [0xFF, 0xFF, 0xFF, 0xFF]
 			else:
 				mau8EdgeCosines = [face[edge_cosine1], face[edge_cosine2], face[edge_cosine3], face[edge_cosine4]]
 			
@@ -2342,7 +2379,7 @@ def read_polygonsoup_object(object, translation, scale):
 	PolygonSoupPolygons.extend(PolygonSoupPolygons_triangles)
 	
 	if len(PolygonSoupPolygons) >= 0xFF:
-		print("ERROR: number of faces higher than the supported by the game on collision mesh %s." % mesh.name)
+		print("ERROR: number of faces higher than the supported by the game on collision mesh %s. It should have less than 255 faces." % mesh.name)
 		return (1, [], [], 0)
 	
 	return (0, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads)
@@ -2441,22 +2478,30 @@ def read_shader(shader_path):	#ok
 		
 		f.seek(shader_parameters_data_pointer, 0)
 		shader_parameters_Data = []
+		# for i in range(0, num_shader_parameters):
+			# if shader_parameters_Indices[i] == -1:
+				# shader_parameters_Data.append(None)
+			# else:
+				# shader_parameters_Data.append(struct.unpack("<4f", f.read(0x10)))
+		
 		for i in range(0, num_shader_parameters):
 			if shader_parameters_Indices[i] == -1:
 				shader_parameters_Data.append(None)
 			else:
+				f.seek(shader_parameters_data_pointer + 0x10*shader_parameters_Indices[i], 0)
 				shader_parameters_Data.append(struct.unpack("<4f", f.read(0x10)))
+				#parameters_names.append(shader_parameters_Names[i])
 		
-		#shader_parameters_Names = []
-		shader_parameters_Names = [""]*num_shader_parameters
+		shader_parameters_Names = []
+		#shader_parameters_Names = [""]*num_shader_parameters
 		for i in range(0, num_shader_parameters):
 			f.seek(shader_parameters_names_pointer + i*0x4, 0)
 			pointer = struct.unpack("<i", f.read(0x4))[0]
 			f.seek(pointer, 0)
 			parameter_name = f.read(shader_parameters_end_pointer-pointer).split(b'\x00')[0]
 			parameter_name = str(parameter_name, 'ascii')
-			#shader_parameters_Names.append(parameter_name)
-			shader_parameters_Names[shader_parameters_Indices[i]] = parameter_name
+			shader_parameters_Names.append(parameter_name)
+			#shader_parameters_Names[shader_parameters_Indices[i]] = parameter_name
 		
 		shader_parameters = [shader_parameters_Indices, shader_parameters_Ones, shader_parameters_NamesHash, shader_parameters_Data, shader_parameters_Names]
 		
@@ -3489,7 +3534,10 @@ def write_material(material_path, material):	#ok
 		f.write(struct.pack('<B', num_parameters_withdata))
 		f.write(struct.pack('<B', 0))
 		f.write(struct.pack('<B', 0))
-		f.write(struct.pack('<i', miNumSamplers))
+		f.write(struct.pack('<B', miNumSamplers))
+		f.write(struct.pack('<B', 0))
+		f.write(struct.pack('<B', 0))
+		f.write(struct.pack('<B', 0))
 		if miNumSamplers > 0:
 			f.write(struct.pack('<I', mpaMaterialConstants))
 			f.write(struct.pack('<I', mpaSamplersChannel))
@@ -3510,8 +3558,12 @@ def write_material(material_path, material):	#ok
 			for i in range(0, num_parameters):
 				f.write(struct.pack('<I', parameters_NamesHash[i]))
 			f.seek(parameters_data_pointer, 0)
-			for i in range(0, num_parameters_withdata):
+			# for i in range(0, num_parameters_withdata):
+				# if parameters_Indices[i] != -1:
+					# f.write(struct.pack('<4f', *parameters_Data[i]))
+			for i in range(0, num_parameters):
 				if parameters_Indices[i] != -1:
+					f.seek(parameters_data_pointer + 0x10*parameters_Indices[i], 0)
 					f.write(struct.pack('<4f', *parameters_Data[i]))
 		
 		if miNumSamplers > 0:
@@ -3732,7 +3784,9 @@ def write_polygonsouplist(polygonsouplist_path, PolygonSoups):
 					min_coord = min(coordinates[j])
 			
 			if max_coord > 0xFFFF:
-				print("ERROR: Out of bounds (>0xFFFF) value on PolygonSoupMesh %d. Translate your mesh origin and the empty coordinates or modify the object scale." % object_index)
+				print("ERROR: Out of bounds (>0xFFFF) value on PolygonSoupMesh %d. Split your mesh in smaller parts. Translate your mesh origin and the empty coordinates or modify the object scale." % object_index)
+			if min_coord < 0x0:
+				print("ERROR: Out of bounds (<0x0) value on PolygonSoupMesh %d. Split your mesh in smaller parts. Translate your mesh origin and the empty coordinates or modify the object scale." % object_index)
 			
 			PolygonSoups[i] = [maabVertexOffsetMultiply[i][:], mfComprGranularity, mpaPolygons, mpaVertices, mu16DataSize, mu8TotalNumPolys, mu8NumQuads, mu8NumVertices, PolygonSoupVertices, PolygonSoupPolygons]
 			
@@ -3861,7 +3915,7 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 				f.write(b'NAV')
 			
 			f.seek(muHeaderOffset, 0)
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.0 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.1 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(muResourceEntriesOffset, 0)
 		
@@ -3966,7 +4020,7 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 		mppModels = struct.unpack("<I", f.read(0x4))[0]
 		f.seek(0xC, 0)
 		mpWheelsData = struct.unpack("<I", f.read(0x4))[0]
-		muPartsCount = struct.unpack("<B", f.read(0x1))[0]
+		muPartsCount = struct.unpack("<H", f.read(0x2))[0]
 		
 		mpWheelAllocateSpace = []
 		object_placements = []
@@ -3974,10 +4028,8 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 		for i in range(0, 4):
 			f.seek(mpWheelsData + 0x90*i + 0x78, 0)
 			mpWheelAllocateSpace.append(struct.unpack("<I", f.read(0x4))[0])
-			spinnable_models = struct.unpack("<B", f.read(0x1))[0]
-			f.seek(0x3, 1)
-			mNumWheelParts += struct.unpack("<B", f.read(0x1))[0]
-			f.seek(0x1, 1)
+			spinnable_models = struct.unpack("<I", f.read(0x4))[0]
+			mNumWheelParts += struct.unpack("<H", f.read(0x2))[0]
 			object_placement = f.read(0xE).split(b'\x00')[0]
 			object_placement = str(object_placement, 'ascii').lower()
 			object_placements.append(object_placement)
@@ -4088,7 +4140,7 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 		f.seek(0x0, 0)
 		f.write(struct.pack('<I', mppModels))
 		f.seek(0x10, 0)
-		f.write(struct.pack('<B', len(instances)))
+		f.write(struct.pack('<H', len(instances)))
 		
 		f.seek(0, 2)
 		if len(instances_wheelGroups) > 0:
@@ -4099,9 +4151,8 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 			for i in range(0, 4):
 				f.seek(mpWheelsData + 0x90*i + 0x78, 0)
 				f.write(struct.pack('<I', first_wheel_pointer))
-				f.write(struct.pack('<B', 0))
-				f.seek(0x3, 1)
-				f.write(struct.pack('<B', 0))
+				f.write(struct.pack('<I', 0))
+				f.write(struct.pack('<H', 0))
 				
 			#for i in range(0, len(instances_wheelGroups)):
 			for i in range(0, 4):
@@ -4112,9 +4163,8 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 					f.write(struct.pack('<f', 0.0))
 					f.seek(0x68, 1)
 					f.write(struct.pack('<I', mpWheelAllocateSpace[object_placements[i]]))
-					f.write(struct.pack('<B', spinnable_models[object_placements[i]]))
-					f.seek(0x3, 1)
-					f.write(struct.pack('<B', maNumWheelParts[object_placements[i]]))
+					f.write(struct.pack('<I', spinnable_models[object_placements[i]]))
+					f.write(struct.pack('<H', maNumWheelParts[object_placements[i]]))
 				except:
 					continue
 				
@@ -4146,7 +4196,7 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 		mppModels = struct.unpack("<I", f.read(0x4))[0]
 		f.seek(0xC, 0)
 		mpWheelsData = struct.unpack("<I", f.read(0x4))[0]
-		muPartsCount = struct.unpack("<B", f.read(0x1))[0]
+		muPartsCount = struct.unpack("<H", f.read(0x2))[0]
 		
 		f.seek(0x1C, 0)
 		effects_count = struct.unpack("<I", f.read(0x4))[0]
@@ -4158,10 +4208,8 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 		for i in range(0, 4):
 			f.seek(mpWheelsData + 0x90*i + 0x78, 0)
 			mpWheelAllocateSpace.append(struct.unpack("<I", f.read(0x4))[0])
-			spinnable_models = struct.unpack("<B", f.read(0x1))[0]
-			f.seek(0x3, 1)
-			mNumWheelParts += struct.unpack("<B", f.read(0x1))[0]
-			f.seek(0x1, 1)
+			spinnable_models = struct.unpack("<I", f.read(0x4))[0]
+			mNumWheelParts += struct.unpack("<H", f.read(0x2))[0]
 			object_placement = f.read(0xE).split(b'\x00')[0]
 			object_placement = str(object_placement, 'ascii').lower()
 		
@@ -4230,7 +4278,7 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 		f.write(struct.pack('<I', 0))
 		f.write(struct.pack('<I', 0))
 		f.write(struct.pack('<I', mpWheelsData))
-		f.write(struct.pack('<B', muPartsCount))
+		f.write(struct.pack('<H', muPartsCount))
 		
 		f.seek(0x1C, 0)
 		f.write(struct.pack('<I', effects_count))
@@ -4316,7 +4364,7 @@ def edit_genesysobject1(genesysobject_dir, genesysobject_path, instances_charact
 	
 	genesysobject_path = os.path.join(genesysobject_dir, mResourceId + ".dat")
 	with open(genesysobject_path, "r+b") as f:
-		instances_character[1][1] = -instances_character[1][1]
+		#instances_character[1][1] = -instances_character[1][1]
 		
 		f.seek(0x10, 0)
 		f.write(struct.pack('<fff', *instances_character[1]))
@@ -4457,7 +4505,7 @@ def merge_resources_table(ids_table_path, resources_table_path):
 		muResourceEntriesOffset += 0x60
 		f.write(header_data)
 		if text != b'Resources generated by NFSMW 2012 Exporter':
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.0 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.1 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(0x10, 0)
 			f.write(struct.pack("<I", muResourceEntriesOffset))
@@ -5493,6 +5541,24 @@ def nvidiaGet():
 			npath = '"' + tpath + '"'
 			return npath
 	return None
+
+
+class Suppressor(object):
+
+	def __enter__(self):
+		self.stdout = sys.stdout
+		sys.stdout = self
+
+	def __exit__(self, type, value, traceback):
+		sys.stdout = self.stdout
+		if type is not None:
+			raise
+
+	def flush(self):
+		pass
+
+	def write(self, x):
+		pass
 
 
 @orientation_helper(axis_forward='-Y', axis_up='Z')
