@@ -11,7 +11,7 @@ The NFSMW12 exporter is a Blender add-on to enable exporting objects as a Need f
 
 ### Recommended Blender add-ons
 - [Vertex Oven](https://github.com/ForestKatsch/VertexOven) for baking ao map on vertex color
-- [Criterion modding helpers](https://github.com/DGIorio/criterion_modding_helpers) for some tools for helping preparing the Blender scene
+- [Criterion modding helpers](https://github.com/DGIorio/criterion_modding_helpers) for some tools and help with preparing the Blender scene
 
 ## Installation
 Go to `Edit > Preferences > Addons > Install` and either select .zip file or the unzipped `export_nfsmw_models.py` file.
@@ -23,7 +23,7 @@ Go to `Edit > Preferences > Addons > Install` and either select .zip file or the
 - Able to export vehicles, track units and characters
 - Support to exporting wheels on vehicles
 - Support to all shader types, with their custom parameters and textures
-- Predefined shader types for easy usage: `Metal or BodyLivery (livery), BodyPaint (paintable), BodyColor (non-paintable, uses BLender color), Interior, Chrome, CarbonFiber, DullPlastic, Badge, Chassis, Glass, Mirror, LicensePlate, LicensePlate_Number, Tyre, Rim, Caliper, BrakeDisc`
+- Predefined shader types for easy usage: `Metal or BodyLivery (livery), BodyPaint (paintable), BodyColor (non-paintable, uses Blender color), Interior, Chrome, CarbonFiber, DullPlastic, Badge, Chassis, Glass, Mirror, LicensePlate, LicensePlate_Number, Tyre, Rim, Caliper, BrakeDisc`
 
 ## Samples
 Samples are available on [samples repository](https://github.com/DGIorio/exporter_samples)
