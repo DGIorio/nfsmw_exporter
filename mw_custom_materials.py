@@ -68,6 +68,7 @@ def custom_shaders():
 	shaders['CarPaintNormal'] = '6E_EF_09_00'
 	shaders['LightGlass'] = 'A7_EF_09_00'
 	shaders['Engine'] = '78_EF_09_00'
+	shaders['TyreNew'] = 'B3_EF_09_00'
 	#CharacterSpec
 	shaders['Character'] = 'AA_D4_10_00'
 	shaders['Driver'] = 'AA_D4_10_00'
@@ -557,6 +558,16 @@ def get_default_material_parameters(shader_type):
 		parameters_Data = [(0.00039999998989515007, 0.0, 0.0, 0.0),
 						   (1.0, 0.0, 0.0, 0.0)]
 		parameters_Names = ['PbrMaterialClearcoatSpecular', 'PbrMaterialClearcoatFresnel']
+	
+	elif shader_type.lower() == "tyrenew":
+		parameters_Indices = [4, 3, 2, 1, 0]
+		parameters_Ones = [1, 1, 1, 1, 1]
+		parameters_NamesHash = [529556121, 2580468578, 3057425025, 3447747285, 3998419168]
+		parameters_Data = [(0.07227185368537903, 0.061246052384376526, 0.05126945674419403, 0.899183452129364),
+						   (0.27049779891967773, 0.24228112399578094, 0.21223075687885284, 0.047659896314144135),
+						   (0.00039999998989515007, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0),
+						   (0.0, 0.0, 0.0, 0.0)]
+		parameters_Names = ['PbrMaterialDustColour', 'PbrMaterialDirtColour', 'PbrMaterialClearcoatSpecular', 'PbrMaterialClearcoatFresnel', 'g_flipUvsOnFlippedTechnique']
 
 	else:
 		status = 1
