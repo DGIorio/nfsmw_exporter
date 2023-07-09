@@ -25,5 +25,8 @@ Go to `Edit > Preferences > Addons > Install` and either select .zip file or the
 - Support to all shader types, with their custom parameters and textures
 - Predefined shader types for easy usage: `Metal or BodyLivery (livery), BodyPaint (paintable), BodyColor (non-paintable, uses Blender color), Interior, Chrome, CarbonFiber, DullPlastic, Badge, Chassis, Glass, Mirror, LicensePlate, LicensePlate_Number, Tyre, Rim, Caliper, BrakeDisc`
 
+## Documentation
+- [Using Blender NFS MW 2012 Exporter addon (for cars)](https://docs.google.com/document/d/1Vz9iIKMCYnIFS7giVAUu0WV8m8zIOoiqTzGKOQsXl_Q)
+
 ## Samples
 Samples are available on [samples repository](https://github.com/DGIorio/exporter_samples)
