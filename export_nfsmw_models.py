@@ -12,7 +12,6 @@
 - export probs and other instance types from tracks
 - vehicle: modify the coronas file for adding or removing effects
 - find a better default color2
-- add default tint data
 - fix muDebugDataOffset (IDs table) on cars??
 """
 
@@ -21,12 +20,13 @@ bl_info = {
 	"name": "Export to Need for Speed Most Wanted (2012) models format (.dat)",
 	"description": "Save objects as Need for Speed Most Wanted files",
 	"author": "DGIorio",
-	"version": (3, 1),
+	"version": (3, 2),
 	"blender": (3, 1, 0),
 	"location": "File > Export > Need for Speed Most Wanted (2012) (.dat)",
 	"warning": "",
 	"wiki_url": "",
 	"tracker_url": "",
+    "doc_url": "https://docs.google.com/document/d/1Vz9iIKMCYnIFS7giVAUu0WV8m8zIOoiqTzGKOQsXl_Q",
 	"support": "COMMUNITY",
 	"category": "Import-Export"}
 
@@ -36,7 +36,8 @@ from bpy.types import Operator
 from bpy.props import (
 	StringProperty,
 	BoolProperty,
-	FloatVectorProperty
+	FloatVectorProperty,
+	EnumProperty
 )
 from bpy_extras.io_utils import (
 	ExportHelper,
@@ -66,8 +67,9 @@ except:
 	print("WARNING: mw_custom_materials.py not found in Blender addons folder. Custom material data will not be available.")
 
 
-def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_layer, force_rotation, transform_args, global_rotation,
-		debug_shared_not_found, debug_use_shader_material_parameters, debug_use_default_samplerstates, debug_redirect_vehicle, new_vehicle_name, m):
+def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_layer, recalculate_vcolor2, force_rotation, transform_args, global_rotation,
+		 force_shared_asset_as_false, debug_shared_not_found,
+		 debug_use_shader_material_parameters, debug_use_default_samplerstates, debug_redirect_vehicle, new_vehicle_name, m):
 	
 	os.system('cls')
 	start_time = time.time()
@@ -94,6 +96,18 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 	shared_trafficattribs_dir = os.path.join(shared_dir, "TRAFFICATTRIBS")
 	shared_characters_dir = os.path.join(shared_dir, "ALL_CHARS")
 	
+	track_unit_number = None
+	
+	force_shared_model_as_false = False
+	force_shared_material_as_false = False
+	force_shared_texture_as_false = False
+	if 'MODEL' in force_shared_asset_as_false:
+		force_shared_model_as_false = True
+	if 'MATERIAL' in force_shared_asset_as_false:
+		force_shared_material_as_false = True
+	if 'TEXTURE' in force_shared_asset_as_false:
+		force_shared_texture_as_false = True
+	
 	for main_collection in bpy.context.scene.collection.children:
 		is_hidden = bpy.context.view_layer.layer_collection.children.get(main_collection.name).hide_viewport
 		is_excluded = bpy.context.view_layer.layer_collection.children.get(main_collection.name).exclude
@@ -110,14 +124,14 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		if "resource_type" in main_collection:
 			resource_type = main_collection["resource_type"]
 		else:
-			print("WARNING: collection %s is missing parameter %s. Define one of the followings: 'GraphicsSpec', 'InstanceList', 'CharacterSpec'." % (main_collection.name, '"resource_type"'))
+			print("WARNING: collection %s is missing parameter %s. Define one of the followings: 'GraphicsSpec', 'InstanceList', 'CharacterSpec', 'ZoneList'." % (main_collection.name, '"resource_type"'))
 			resource_type = "GraphicsSpec"
 			#return {"CANCELLED"}
 		
 		try:
 			collections_types = {collection["resource_type"] : collection for collection in main_collection.children}
 		except:
-			print("WARNING: some collection is missing parameter %s. Define one of the followings: 'GraphicsSpec', 'WheelGraphicsSpec', 'PolygonSoupList', 'Character', 'Effects', 'CharacterSpec'." % '"resource_type"')
+			print("WARNING: some collection is missing parameter %s. Define one of the followings: 'GraphicsSpec', 'WheelGraphicsSpec', 'PolygonSoupList', 'Character', 'Effects', 'CharacterSpec', 'ZoneList'." % '"resource_type"')
 			collections_types = {}
 			for collection in main_collection.children:
 				try:
@@ -134,7 +148,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			try:
 				track_unit_number = int(track_unit_number)
 			except:
-				print("ERROR: collection %s name is not in the proper formating. Define it as TRK_UNITXXX where XXX is a number" % track_unit_name)
+				print("ERROR: collection %s name is not in the proper formating. Define it as TRK_UNITXXX where XXX is a number." % track_unit_name)
 				return {"CANCELLED"}
 			mInstanceListId = calculate_resourceid("trk_unit" + str(track_unit_number) + "_list")
 			instancelist_collection = collections_types["InstanceList"]
@@ -174,6 +188,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				test = int(vehicle_number)
 			except:
 				print("ERROR: main_collection's name is in the wrong format. Use something like VEH_122672_HI or VEH_122672_LO.")
+				return {"CANCELLED"}
 			mGraphicsSpecId = int_to_id(vehicle_number)
 			graphicsspec_collection = collections_types["GraphicsSpec"]
 			
@@ -257,6 +272,16 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			
 			collections = [characterspec_collection,]
 		
+		elif resource_type == "ZoneList":
+			try:
+				mZoneList = main_collection["world_name"]
+			except:
+				mZoneList = "HAWAII"
+			
+			mZoneListId = calculate_resourceid(mZoneList.lower())
+			zonelist_collection = collections_types["ZoneList"]
+			collections = [zonelist_collection,]
+		
 		else:
 			print("ERROR: resource type %s not supported." % resource_type)
 			return {"CANCELLED"}
@@ -273,6 +298,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		propinstancelist_dir = os.path.join(directory_path, "PropInstanceList")
 		zoneheader_dir = os.path.join(directory_path, "ZoneHeader")
 		navigationmesh_dir = os.path.join(directory_path, "NavigationMesh")
+		zonelist_dir = os.path.join(directory_path, "ZoneList")
 		graphicsspec_dir = os.path.join(directory_path, "GraphicsSpec")
 		genesysobject_dir = os.path.join(directory_path, "GenesysObject")
 		characterspec_dir = os.path.join(directory_path, "CharacterSpec")
@@ -293,6 +319,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		instances_effects = []
 		instance_collision = []
 		PolygonSoups = []
+		zonelist = []
 		models = []
 		renderables = []
 		materials = []
@@ -335,6 +362,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					except:
 						is_model_shared_asset = False
 					
+					if force_shared_model_as_false == True:
+						is_model_shared_asset = False
+					
 					if is_model_shared_asset == True:
 						model_path = os.path.join(shared_model_dir, mModelId + ".dat")
 						if not os.path.isfile(model_path):
@@ -373,7 +403,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						has_tint_data = object["has_tint_data"]
 					except:
 						print("WARNING: object %s is missing parameter %s. Assuming some value." % (object.name, '"has_tint_data"'))
-						has_tint_data = 0
+						has_tint_data = False
 						#TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], ["D5_66_04_00", "D5_66_04_00"]]
 						TintData = [["diffuseTintColour", "InstanceAdditiveAndAO", "AdditiveIntensities"], [[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]], [], [], []]
 					
@@ -394,6 +424,10 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 							samplers_names = object["samplers_names"]
 							sampler_states = object["SamplerStateIds"]
 							textures = object["TextureIds"]
+							
+							for mSamplerStateId in sampler_states:
+								if mSamplerStateId not in samplerstates:
+									samplerstates.append(mSamplerStateId)
 						except:
 							samplers_names = []
 							sampler_states = []
@@ -427,6 +461,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 										is_raster_shared_asset = raster.is_shared_asset
 									except:
 										print("WARNING: image %s is missing parameter %s. Assuming as False." % (raster.name, '"is_shared_asset"'))
+										is_raster_shared_asset = False
+									
+									if force_shared_texture_as_false == True:
 										is_raster_shared_asset = False
 									
 									if is_raster_shared_asset == True:
@@ -522,7 +559,33 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 													print("WARNING: image %s is missing parameter %s. Setting as 0x30" % (raster.name, '"flags"'))
 													unknown_0x20 = 0x30
 									
-									raster_properties = [unknown_0x20]
+									try:
+										main_mipmap = raster.main_mipmap
+										if main_mipmap == -1:
+											raise Exception
+									except:
+										try:
+											main_mipmap = raster["main_mipmap"]
+											if main_mipmap == -1:
+												raise Exception
+										except:
+											#print("WARNING: image %s is missing parameter %s. Assuming as 0." % (raster.name, '"main_mipmap"'))
+											main_mipmap = 0
+									
+									try:
+										dimension = raster.dimension
+										if dimension == -1:
+											raise Exception
+									except:
+										try:
+											dimension = raster["dimension"]
+											if dimension == -1:
+												raise Exception
+										except:
+											#print("WARNING: image %s is missing parameter %s. Assuming as 2D (2)." % (raster.name, '"dimension"'))
+											dimension = 2
+									
+									raster_properties = [unknown_0x20, dimension, main_mipmap]
 									
 									rasters.append([mRasterId, [raster_properties], is_raster_shared_asset, raster_path])
 									
@@ -604,7 +667,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					if mTransform.to_scale()[0] != mTransform.to_scale()[1] or mTransform.to_scale()[0] != mTransform.to_scale()[2] or mTransform.to_scale()[1] != mTransform.to_scale()[2]:
 						print("WARNING: object %s have different scales per axis. Consider applying the scale." % object.name)
 					
-					status, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads = read_polygonsoup_object(child, maiVertexOffsets, mfComprGranularity, resource_type)
+					status, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads = read_polygonsoup_object(child, maiVertexOffsets, mfComprGranularity, resource_type, track_unit_number)
 					if status == 1:
 						return {"CANCELLED"}
 					
@@ -735,6 +798,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					print("WARNING: object %s is missing parameter %s. Assuming as False." % (object.name, '"is_shared_asset"'))
 					is_model_shared_asset = False
 				
+				if force_shared_model_as_false == True:
+					is_model_shared_asset = False
+				
 				if is_model_shared_asset == True:
 					model_path = os.path.join(shared_model_dir, mModelId + ".dat")
 					if not os.path.isfile(model_path):
@@ -762,7 +828,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						renderable_index = child["renderable_index"]
 					except:
 						print("WARNING: object %s is missing parameter %s. Defining it based on the number of polygons." % (child.name, '"renderable_index"'))
-						renderable_indices.append([child.name, len(child.data.polygons)])
+					renderable_indices.append([child.name, len(child.data.polygons)])
 				renderable_indices.sort(key=lambda x: x[1], reverse=True)
 				
 				if num_objects == 0:
@@ -792,6 +858,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						print("WARNING: object %s is missing parameter %s. Assuming as False." % (child.name, '"is_shared_asset"'))
 						is_shared_asset = False
 					
+					if force_shared_model_as_false == True:
+						is_shared_asset = False
+					
 					if is_shared_asset == True:
 						renderable_path = os.path.join(shared_renderable_dir, mRenderableId + ".dat")
 						if not os.path.isfile(renderable_path):
@@ -812,7 +881,6 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								if rend_list[0] == child.name:
 									renderable_index = rend_index
 									break
-							
 					
 					renderables_info.append([mRenderableId, [renderable_index]])
 					
@@ -827,13 +895,13 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					object_center = [(max(bbox_x) + min(bbox_x))*0.5, (max(bbox_y) + min(bbox_y))*0.5, (max(bbox_z) + min(bbox_z))*0.5]
 					object_radius = math.dist(object_center, child.bound_box[0])
 					
-					meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, status = read_object(child, resource_type_child, shared_dir, copy_uv_layer)
+					meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, status = read_object(child, resource_type_child, shared_dir, copy_uv_layer, recalculate_vcolor2)
 					
 					if status == 1:
 						return {'CANCELLED'}
 					
 					num_meshes = len(meshes_info)
-					renderable_properties = [object_center, object_radius, num_meshes]
+					renderable_properties = [object_center, object_radius, submeshes_bounding_box, num_meshes]
 					
 					renderables.append([mRenderableId, [meshes_info, renderable_properties, indices_buffer, vertices_buffer], is_shared_asset, ""])
 					
@@ -852,6 +920,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 							is_material_shared_asset = mat["is_shared_asset"]
 						except:
 							print("WARNING: material %s is missing parameter %s. Assuming as False." % (mat.name, '"is_shared_asset"'))
+							is_material_shared_asset = False
+						
+						if force_shared_material_as_false == True:
 							is_material_shared_asset = False
 						
 						if is_material_shared_asset == True:
@@ -1068,249 +1139,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 									print("WARNING: image %s is missing parameter %s. Assuming as False." % (raster.name, '"is_shared_asset"'))
 									is_raster_shared_asset = False
 								
-								if is_raster_shared_asset == True:
-									raster_path = os.path.join(shared_raster_dir, mRasterId + ".dat")
-									raster_dds_path = os.path.join(shared_raster_dir, mRasterId + ".dds")
-									if os.path.isfile(raster_path) or os.path.isfile(raster_dds_path):
-										mRasterId = mRasterId
-									else:
-										print("WARNING: %s %s is set as a shared asset although it may not exist on NFSMW PC." % ("texture", mRasterId))
-										if debug_shared_not_found == True:
-											print("WARNING: setting %s %s is_shared_asset to False." % ("texture", mRasterId))
-											is_raster_shared_asset = False
-								
-								if mRasterId in (rows[0] for rows in rasters):
-									continue
-								
-								if is_raster_shared_asset == True:
-									rasters.append([mRasterId, [], is_raster_shared_asset, ""])
-									continue
-								
-								width, height = raster.size
-								if width < 4 or height < 4:
-									print("ERROR: image %s resolution smaller than the supported by the game. It must be bigger than or equal to 4x4." % raster.name)
-									return {"CANCELLED"}
-								
-								is_packed = False
-								if len(raster.packed_files) > 0:
-									is_packed = True
-									raster.unpack(method='WRITE_LOCAL')	# Default method, it unpacks to the current .blend directory
-								
-								#raster_path = bpy.path.abspath(raster.filepath)
-								raster_path = os.path.realpath(bpy.path.abspath(raster.filepath))
-								raster.filepath = raster_path
-								
-								raster_source_extension = os.path.splitext(os.path.basename(raster_path))[-1]
-								if raster_source_extension != ".dds":
-									if raster_source_extension in (".tga", ".png", ".psd", ".jpg", ".bmp"):
-										if nvidiaGet() == None:
-											print("ERROR: NVIDIA Texture Tools not found. Unable to convert %s to .dds" % raster_source_extension)
-											return {"CANCELLED"}
-										print("WARNING: converting texture %s format from %s to .dds." % (os.path.splitext(os.path.basename(raster_path))[0], raster_source_extension))
-										raster_path = convert_texture_to_dxt5(raster_path, False)
-									else:
-										print("ERROR: texture format %s not supported. Please use .dds format." % raster_source_extension)
-										return {"CANCELLED"}
-								
-								try:
-									unknown_0x20 = raster.flags
-									if unknown_0x20 == -1:
-										raise Exception
-								except:
-									try:
-										unknown_0x20 = raster.unknown_0x20
-										if unknown_0x20 == -1:
-											raise Exception
-									except:
-										try:
-											unknown_0x20 = raster["unknown_0x20"]
-											if unknown_0x20 == -1:
-												raise Exception
-										except:
-											if raster_type == "NormalTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (NormalTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "EffectsTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (EffectsTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "BlurEffectsTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (BlurEffectsTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "CrumpleTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (CrumpleTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "LightmapLightsTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (LightmapLightsTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "EmissiveTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (EmissiveTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "DisplacementSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (DisplacementSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "AmbientOcclusionTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (AmbientOcclusionTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif raster_type == "AOMapTextureSampler":
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (AOMapTextureSampler)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											elif "Normal" in raster_type:
-												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (normal texture)" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x20
-											else:
-												print("WARNING: image %s is missing parameter %s. Setting as 0x30" % (raster.name, '"flags"'))
-												unknown_0x20 = 0x30
-								
-								raster_properties = [unknown_0x20]
-								
-								rasters.append([mRasterId, [raster_properties], is_raster_shared_asset, raster_path])
-								
-								if is_packed == True:
-									raster.pack()
-						
-						if len(textures_info) != num_sampler_states_shader:
-							print("WARNING: number of textures (%d) on material %s is different from the %d required by the shader %s." % (len(textures_info), mMaterialId, num_sampler_states_shader, mShaderId))
-							
-							texture_sampler_codes = [texture_info[1] for texture_info in textures_info]
-							for raster_type, miChannel in required_raster_types.items():
-								if miChannel in texture_sampler_codes:
-									continue
-								
-								try:
-									mRasterId, raster_properties, is_raster_shared_asset, raster_path = get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type)
-								except:
-									print("WARNING: get_default_mRasterId function not found. Custom data will not be available.")
-									
-									is_raster_shared_asset = True
-									raster_path = ""
-									raster_properties = [0x30]
-									if resource_type == "InstanceList":
-										mRasterId = "1D_F3_05_00"
-									else:
-										mRasterId = "30_A7_06_00"
-									
-									if resource_type == "InstanceList":
-										mRasterId = "1D_F3_05_00"
-									else:
-										if raster_type == 'DiffuseTextureSampler':
-											mRasterId = "30_A7_06_00"
-										elif raster_type == 'NormalTextureSampler':
-											mRasterId = "06_88_13_00"
-										elif raster_type == 'ExternalNormalTextureSampler':
-											mRasterId = "06_88_13_00"
-										elif raster_type == 'InternalNormalTextureSampler':
-											mRasterId = "06_88_13_00"
-										elif raster_type == 'CrackedGlassNormalTextureSampler':
-											mRasterId = "30_A7_06_00"
-										elif raster_type == 'SpecularTextureSampler':
-											mRasterId = "30_A7_06_00"
-										elif raster_type == 'CrumpleTextureSampler':
-											mRasterId = "49_02_06_00"
-										elif raster_type == 'EffectsTextureSampler':
-											#mRasterId = "1C_8D_0D_00"
-											mRasterId = "30_A7_06_00"
-										elif raster_type == 'LightmapTextureSampler':
-											mRasterId = "0A_08_11_00"
-										elif raster_type == 'LightmapLightsTextureSampler':
-											mRasterId = "0A_08_11_00"
-										elif raster_type == 'EmissiveTextureSampler':
-											mRasterId = "0A_08_11_00"
-										elif raster_type == 'ColourSampler':
-											mRasterId = "0B_08_11_00"
-										elif raster_type == 'DisplacementSampler':
-											#mRasterId = "30_A7_06_00"
-											mRasterId = "7D_A1_02_A1"
-											raster_properties = [0x20]
-											is_raster_shared_asset = False
-											raster_path = "create_texture"
-										elif raster_type == 'CrackedGlassTextureSampler':
-											mRasterId = "7F_07_11_00"
-											#mRasterId = "30_A7_06_00"
-								
-								textures_info.append([mRasterId, miChannel, raster_type])
-								rasters.append([mRasterId, [raster_properties[:]], is_raster_shared_asset, raster_path])
-								
-							
-						materials.append([mMaterialId, [mShaderId, textures_info, sampler_states_info, material_parameters, sampler_properties, texture_samplers], is_material_shared_asset])
-				
-				renderable_indices = [renderable_info[1][0] for renderable_info in renderables_info]
-				indices_range = list(range(0, max(renderable_indices) + 1))
-				if sorted(renderable_indices) != indices_range:
-					print("ERROR: missing or duplicated renderable indices on object %s childs. Verify the %s parameters for skipped or duplicated entries." % (object.name, '"renderable_index"'))
-					print("renderable_indices =", renderable_indices, indices_range)
-					return {"CANCELLED"}
-				
-				mu8NumRenderables = len(renderables_info)
-				mu8NumStates = 5
-				try:
-					unknown_0x19 = object["unknown_0x19"]
-				except:
-					if resource_type == "InstanceList":
-						print("WARNING: object %s is missing parameter %s. Assuming some value." % (object.name, '"unknown_0x19"'))
-					unknown_0x19 = 0
-				
-				
-				has_tint_data = 0
-				TintData = []
-				try:
-					has_tint_data = object["model_has_tint_data"]
-				except:
-					if resource_type == "InstanceList":
-						print("WARNING: object %s is missing parameter %s. Assuming some value." % (object.name, '"model_has_tint_data"'))
-						has_tint_data = 0
-						TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], ["D5_66_04_00", "D5_66_04_00"]]
-					else:
-						pass
-				
-				if has_tint_data == True:
-					all_parameters_names = ["model_diffuseTintColour", "model_InstanceAdditiveAndAO", "model_AdditiveIntensities"]
-					parameters_names = []
-					parameters_data = []
-					
-					for parameter_name in all_parameters_names:
-						try:
-							tint_data = object[parameter_name]
-							parameters_names.append(parameter_name.replace("model_", ""))
-							parameters_data.append(tint_data)
-						except:
-							pass
-					
-					try:
-						samplers_names = object["model_samplers_names"]
-						sampler_states = object["model_SamplerStateIds"]
-						textures = object["model_TextureIds"]
-					except:
-						samplers_names = []
-						sampler_states = []
-						textures = []
-					
-					if parameters_data == [] and samplers_names == []:
-						has_tint_data = False
-						#TintData = []
-						TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], ["D5_66_04_00", "D5_66_04_00"]]
-					else:
-						TintData = [parameters_names, parameters_data, samplers_names, sampler_states, textures]
-						
-						# Collecting texture data (same/similar loop is used later)
-						if len(textures) != 0:
-							for mRasterId, raster_type in zip(textures, samplers_names):
-								try:
-									raster = bpy.data.images[mRasterId]
-								except:
-									print("WARNING: No image data for texture %s. Ignoring it." % (mRasterId))
-									continue
-								
-								if raster == None:
-									print("WARNING: No image for texture %s. Ignoring it." % (mRasterId))
-									continue
-								
-								if is_valid_id(mRasterId) == False:
-									return {"CANCELLED"}
-								
-								try:
-									is_raster_shared_asset = raster.is_shared_asset
-								except:
-									print("WARNING: image %s is missing parameter %s. Assuming as False." % (raster.name, '"is_shared_asset"'))
+								if force_shared_texture_as_false == True:
 									is_raster_shared_asset = False
 								
 								if is_raster_shared_asset == True:
@@ -1406,14 +1235,368 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 												print("WARNING: image %s is missing parameter %s. Setting as 0x30" % (raster.name, '"flags"'))
 												unknown_0x20 = 0x30
 								
-								raster_properties = [unknown_0x20]
+								try:
+									main_mipmap = raster.main_mipmap
+									if main_mipmap == -1:
+										raise Exception
+								except:
+									try:
+										main_mipmap = raster["main_mipmap"]
+										if main_mipmap == -1:
+											raise Exception
+									except:
+										#print("WARNING: image %s is missing parameter %s. Assuming as 0." % (raster.name, '"main_mipmap"'))
+										main_mipmap = 0
+								
+								try:
+									dimension = raster.dimension
+									if dimension == -1:
+										raise Exception
+								except:
+									try:
+										dimension = raster["dimension"]
+										if dimension == -1:
+											raise Exception
+									except:
+										#print("WARNING: image %s is missing parameter %s. Assuming as 2D (2)." % (raster.name, '"dimension"'))
+										dimension = 2
+								
+								raster_properties = [unknown_0x20, dimension, main_mipmap]
+								
+								rasters.append([mRasterId, [raster_properties], is_raster_shared_asset, raster_path])
+								
+								if is_packed == True:
+									raster.pack()
+						
+						if len(textures_info) != num_sampler_states_shader:
+							print("WARNING: number of textures (%d) on material %s is different from the %d required by the shader %s." % (len(textures_info), mMaterialId, num_sampler_states_shader, mShaderId))
+							
+							texture_sampler_codes = [texture_info[1] for texture_info in textures_info]
+							for raster_type, miChannel in required_raster_types.items():
+								if miChannel in texture_sampler_codes:
+									continue
+								
+								try:
+									mRasterId, raster_properties, is_raster_shared_asset, raster_path = get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type)
+								except:
+									print("WARNING: get_default_mRasterId function not found. Custom data will not be available.")
+									
+									is_raster_shared_asset = True
+									raster_path = ""
+									raster_properties = [0x30, 2, 0]
+									if resource_type == "InstanceList":
+										mRasterId = "1D_F3_05_00"
+									else:
+										mRasterId = "30_A7_06_00"
+									
+									if resource_type == "InstanceList":
+										mRasterId = "1D_F3_05_00"
+									else:
+										if raster_type == 'DiffuseTextureSampler':
+											mRasterId = "30_A7_06_00"
+										elif raster_type == 'NormalTextureSampler':
+											mRasterId = "06_88_13_00"
+										elif raster_type == 'ExternalNormalTextureSampler':
+											mRasterId = "06_88_13_00"
+										elif raster_type == 'InternalNormalTextureSampler':
+											mRasterId = "06_88_13_00"
+										elif raster_type == 'CrackedGlassNormalTextureSampler':
+											mRasterId = "80_07_11_00"
+											#mRasterId = "30_A7_06_00"
+										elif raster_type == 'SpecularTextureSampler':
+											mRasterId = "30_A7_06_00"
+										elif raster_type == 'CrumpleTextureSampler':
+											mRasterId = "49_02_06_00"
+										elif raster_type == 'EffectsTextureSampler':
+											#mRasterId = "1C_8D_0D_00"
+											mRasterId = "30_A7_06_00"
+										elif raster_type == 'LightmapTextureSampler':
+											mRasterId = "0A_08_11_00"
+										elif raster_type == 'LightmapLightsTextureSampler':
+											mRasterId = "0A_08_11_00"
+										elif raster_type == 'EmissiveTextureSampler':
+											mRasterId = "0A_08_11_00"
+										elif raster_type == 'ColourSampler':
+											mRasterId = "0B_08_11_00"
+										elif raster_type == 'DisplacementSampler':
+											#mRasterId = "30_A7_06_00"
+											mRasterId = "7D_A1_02_A1"
+											raster_properties = [0x20, 2, 0]
+											is_raster_shared_asset = False
+											raster_path = "create_texture"
+										elif raster_type == 'CrackedGlassTextureSampler':
+											mRasterId = "7F_07_11_00"
+											#mRasterId = "30_A7_06_00"
+								
+								textures_info.append([mRasterId, miChannel, raster_type])
+								rasters.append([mRasterId, [raster_properties[:]], is_raster_shared_asset, raster_path])
+								
+							
+						materials.append([mMaterialId, [mShaderId, textures_info, sampler_states_info, material_parameters, sampler_properties, texture_samplers], is_material_shared_asset])
+				
+				renderable_indices = [renderable_info[1][0] for renderable_info in renderables_info]
+				indices_range = list(range(0, max(renderable_indices) + 1))
+				if sorted(renderable_indices) != indices_range:
+					print("ERROR: missing or duplicated renderable indices on object %s childs. Verify the %s parameters for skipped or duplicated entries." % (object.name, '"renderable_index"'))
+					print("renderable_indices =", renderable_indices, indices_range)
+					return {"CANCELLED"}
+				
+				mu8NumRenderables = len(renderables_info)
+				mu8NumStates = 5
+				try:
+					unknown_0x19 = object["unknown_0x19"]
+				except:
+					if resource_type == "InstanceList":
+						print("WARNING: object %s is missing parameter %s. Assuming some value." % (object.name, '"unknown_0x19"'))
+					unknown_0x19 = 0
+				
+				try:
+					lod_distances = object["lod_distances"]
+				except:
+					print("WARNING: object %s is missing parameter %s. Assuming default value." % (object.name, '"lod_distances"'))
+					lod_distances = []
+				
+				has_tint_data = 0
+				TintData = []
+				try:
+					has_tint_data = object["model_has_tint_data"]
+				except:
+					if resource_type == "InstanceList":
+						print("WARNING: object %s is missing parameter %s. Assuming some value." % (object.name, '"model_has_tint_data"'))
+						has_tint_data = 0
+						#TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], ["D5_66_04_00", "D5_66_04_00"]]
+						
+						mRasterIdWhite = "A2_70_79_2C"	#white
+						if mRasterIdWhite in (rows[0] for rows in rasters):
+							pass
+						else:
+							raster_properties = [48, 2, 0]
+							is_raster_shared_asset = False
+							raster_path = "create_texture"
+							rasters.append([mRasterIdWhite, [raster_properties], is_raster_shared_asset, raster_path])
+						
+						mRasterIdBlack = "4F_1F_A7_2D"	#black
+						if mRasterIdBlack in (rows[0] for rows in rasters):
+							pass
+						else:
+							raster_properties = [48, 2, 0]
+							is_raster_shared_asset = False
+							raster_path = "create_texture"
+							rasters.append([mRasterIdBlack, [raster_properties], is_raster_shared_asset, raster_path])
+						
+						TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], [mRasterIdWhite, mRasterIdBlack]]
+						if "D5_4F_91_2F" not in samplerstates:
+							samplerstates.append("D5_4F_91_2F")
+					else:
+						pass
+				
+				if has_tint_data == True:
+					all_parameters_names = ["model_diffuseTintColour", "model_InstanceAdditiveAndAO", "model_AdditiveIntensities"]
+					parameters_names = []
+					parameters_data = []
+					
+					for parameter_name in all_parameters_names:
+						try:
+							tint_data = object[parameter_name]
+							parameters_names.append(parameter_name.replace("model_", ""))
+							parameters_data.append(tint_data)
+						except:
+							pass
+					
+					try:
+						samplers_names = object["model_samplers_names"]
+						sampler_states = object["model_SamplerStateIds"]
+						textures = object["model_TextureIds"]
+						
+						for mSamplerStateId in sampler_states:
+							if mSamplerStateId not in samplerstates:
+								samplerstates.append(mSamplerStateId)
+					except:
+						samplers_names = []
+						sampler_states = []
+						textures = []
+					
+					if parameters_data == [] and samplers_names == []:
+						has_tint_data = False
+						#TintData = []
+						#TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], ["D5_66_04_00", "D5_66_04_00"]]
+						
+						mRasterIdWhite = "A2_70_79_2C"	#white
+						if mRasterIdWhite in (rows[0] for rows in rasters):
+							pass
+						else:
+							raster_properties = [48, 2, 0]
+							is_raster_shared_asset = False
+							raster_path = "create_texture"
+							rasters.append([mRasterIdWhite, [raster_properties], is_raster_shared_asset, raster_path])
+						
+						mRasterIdBlack = "4F_1F_A7_2D"	#black
+						if mRasterIdBlack in (rows[0] for rows in rasters):
+							pass
+						else:
+							raster_properties = [48, 2, 0]
+							is_raster_shared_asset = False
+							raster_path = "create_texture"
+							rasters.append([mRasterIdBlack, [raster_properties], is_raster_shared_asset, raster_path])
+						
+						TintData = [[], [], ["AOMapTextureSampler", "LightMapTextureSampler"], ["D5_4F_91_2F", "D5_4F_91_2F"], [mRasterIdWhite, mRasterIdBlack]]
+						if "D5_4F_91_2F" not in samplerstates:
+							samplerstates.append("D5_4F_91_2F")
+					else:
+						TintData = [parameters_names, parameters_data, samplers_names, sampler_states, textures]
+						
+						# Collecting texture data (same/similar loop is used later)
+						if len(textures) != 0:
+							for mRasterId, raster_type in zip(textures, samplers_names):
+								try:
+									raster = bpy.data.images[mRasterId]
+								except:
+									print("WARNING: No image data for texture %s. Ignoring it." % (mRasterId))
+									continue
+								
+								if raster == None:
+									print("WARNING: No image for texture %s. Ignoring it." % (mRasterId))
+									continue
+								
+								if is_valid_id(mRasterId) == False:
+									return {"CANCELLED"}
+								
+								try:
+									is_raster_shared_asset = raster.is_shared_asset
+								except:
+									print("WARNING: image %s is missing parameter %s. Assuming as False." % (raster.name, '"is_shared_asset"'))
+									is_raster_shared_asset = False
+								
+								if force_shared_texture_as_false == True:
+									is_raster_shared_asset = False
+								
+								if is_raster_shared_asset == True:
+									raster_path = os.path.join(shared_raster_dir, mRasterId + ".dat")
+									raster_dds_path = os.path.join(shared_raster_dir, mRasterId + ".dds")
+									if os.path.isfile(raster_path) or os.path.isfile(raster_dds_path):
+										mRasterId = mRasterId
+									else:
+										print("WARNING: %s %s is set as a shared asset although it may not exist on NFSMW PC." % ("texture", mRasterId))
+										if debug_shared_not_found == True:
+											print("WARNING: setting %s %s is_shared_asset to False." % ("texture", mRasterId))
+											is_raster_shared_asset = False
+								
+								if mRasterId in (rows[0] for rows in rasters):
+									continue
+								
+								if is_raster_shared_asset == True:
+									rasters.append([mRasterId, [], is_raster_shared_asset, ""])
+									continue
+								
+								width, height = raster.size
+								if width < 4 or height < 4:
+									print("ERROR: image %s resolution smaller than the supported by the game. It must be bigger than or equal to 4x4." % raster.name)
+									return {"CANCELLED"}
+								
+								is_packed = False
+								if len(raster.packed_files) > 0:
+									is_packed = True
+									raster.unpack(method='WRITE_LOCAL')	# Default method, it unpacks to the current .blend directory
+								
+								#raster_path = bpy.path.abspath(raster.filepath)
+								raster_path = os.path.realpath(bpy.path.abspath(raster.filepath))
+								raster.filepath = raster_path
+								
+								raster_source_extension = os.path.splitext(os.path.basename(raster_path))[-1]
+								if raster_source_extension != ".dds":
+									if raster_source_extension in (".tga", ".png", ".psd", ".jpg", ".bmp"):
+										if nvidiaGet() == None:
+											print("ERROR: NVIDIA Texture Tools not found. Unable to convert %s to .dds" % raster_source_extension)
+											return {"CANCELLED"}
+										print("WARNING: converting texture %s format from %s to .dds." % (os.path.splitext(os.path.basename(raster_path))[0], raster_source_extension))
+										raster_path = convert_texture_to_dxt5(raster_path, False)
+									else:
+										print("ERROR: texture format %s not supported. Please use .dds format." % raster_source_extension)
+										return {"CANCELLED"}
+								
+								try:
+									unknown_0x20 = raster.flags
+									if unknown_0x20 == -1:
+										raise Exception
+								except:
+									try:
+										unknown_0x20 = raster.unknown_0x20
+										if unknown_0x20 == -1:
+											raise Exception
+									except:
+										try:
+											unknown_0x20 = raster["unknown_0x20"]
+											if unknown_0x20 == -1:
+												raise Exception
+										except:
+											if raster_type == "NormalTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (NormalTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "EffectsTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (EffectsTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "BlurEffectsTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (BlurEffectsTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "CrumpleTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (CrumpleTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "LightmapLightsTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (LightmapLightsTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "EmissiveTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (EmissiveTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "DisplacementSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (DisplacementSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "AmbientOcclusionTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (AmbientOcclusionTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif raster_type == "AOMapTextureSampler":
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (AOMapTextureSampler)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											elif "Normal" in raster_type:
+												print("WARNING: image %s is missing parameter %s. Setting as 0x20 (normal texture)" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x20
+											else:
+												print("WARNING: image %s is missing parameter %s. Setting as 0x30" % (raster.name, '"flags"'))
+												unknown_0x20 = 0x30
+								
+								try:
+									main_mipmap = raster.main_mipmap
+									if main_mipmap == -1:
+										raise Exception
+								except:
+									try:
+										main_mipmap = raster["main_mipmap"]
+										if main_mipmap == -1:
+											raise Exception
+									except:
+										#print("WARNING: image %s is missing parameter %s. Assuming as 0." % (raster.name, '"main_mipmap"'))
+										main_mipmap = 0
+								
+								try:
+									dimension = raster.dimension
+									if dimension == -1:
+										raise Exception
+								except:
+									try:
+										dimension = raster["dimension"]
+										if dimension == -1:
+											raise Exception
+									except:
+										#print("WARNING: image %s is missing parameter %s. Assuming as 2D (2)." % (raster.name, '"dimension"'))
+										dimension = 2
+								
+								raster_properties = [unknown_0x20, dimension, main_mipmap]
 								
 								rasters.append([mRasterId, [raster_properties], is_raster_shared_asset, raster_path])
 								
 								if is_packed == True:
 									raster.pack()
 				
-				model_properties = [mu8NumRenderables, mu8NumStates, TintData, unknown_0x19]
+				model_properties = [mu8NumRenderables, mu8NumStates, TintData, unknown_0x19, lod_distances]
 				
 				models.append([mModelId, [renderables_info, model_properties], is_model_shared_asset])
 			
@@ -1421,7 +1604,91 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			instances[:] = [instance for instance in instances if instance[1][0] in (rows[0] for rows in models)]
 			instances_wheel[:] = [instance for instance in instances_wheel if instance[1][0] in (rows[0] for rows in models)]
 		
-		if len(instances) == 0 and len(instances_wheel) == 0 and len(instances_character) == 0 and resource_type != "InstanceList" and (resource_type != "PolygonSoupList" and resource_type != "Collision"):
+		# PVS (ZoneList)
+		if resource_type == "ZoneList":
+			for collection in collections:
+				is_hidden = bpy.context.view_layer.layer_collection.children.get(main_collection.name).children.get(collection.name).hide_viewport
+				is_excluded = bpy.context.view_layer.layer_collection.children.get(main_collection.name).children.get(collection.name).exclude
+				
+				if is_hidden or is_excluded:
+					print("WARNING: skipping collection %s since it is hidden or excluded." % (collection.name))
+					print("")
+					continue
+				
+				resource_type_child = collection["resource_type"]
+				
+				objects = collection.objects
+				object_index = -1
+				
+				for zone_object in objects:
+					if zone_object.type != "MESH":
+						continue
+					
+					is_hidden = zone_object.hide_get()
+					if is_hidden == True:
+						continue
+					
+					# Zone
+					zone_object_name = zone_object.name
+					try:
+						muZoneId = int(zone_object_name.split(".")[0].split("_")[-1])
+					except:
+						print("ERROR: zone object's name not in the proper format: %s. The format should be like Zone_0071.NFSMW." % zone_object_name)
+						return {"CANCELLED"}
+					
+					try:
+						muArenaId = zone_object["ArenaId"]
+					except:
+						print("WARNING: zone %s is missing parameter %s. Assuming some value (0)." % (muZoneId, '"ArenaId"'))
+						muArenaId = 0
+					
+					try:
+						unknown_0x40 = zone_object["unknown_0x40"]
+					except:
+						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (muZoneId, '"unknown_0x40"'))
+						unknown_0x40 = 0
+					
+					try:
+						mauNeighbourId = zone_object["NeighbourIds"]
+					except:
+						print("WARNING: object %s is missing parameter %s. Assuming as none." % (muZoneId, '"NeighbourIds"'))
+						mauNeighbourId = []
+					
+					try:
+						mauNeighbourFlags = zone_object["NeighbourFlags"]
+						
+						neighbourFlags = []
+						for neighbourFlag in mauNeighbourFlags:
+							neighbourFlags.append(get_neighbour_flags_code(neighbourFlag))
+						mauNeighbourFlags = neighbourFlags[:]
+					except:
+						print("WARNING: object %s is missing parameter %s. Assuming all flags as E_NEIGHBOURFLAG_IMMEDIATE." % (muZoneId, '"NeighbourFlags"'))
+						mauNeighbourFlags = [0x3,]*len(mauNeighbourId)
+					
+					if len(mauNeighbourId) > len(mauNeighbourFlags):
+						print("WARNING: object %s contains less NeighbourFlags than NeighbourIds %s. Assuming missing flags as E_NEIGHBOURFLAG_IMMEDIATE." % (muZoneId, '"NeighbourFlags"'))
+						mauNeighbourFlags.extend([0x3,]*(len(mauNeighbourId) - len(mauNeighbourId)))
+					elif len(mauNeighbourId) < len(mauNeighbourFlags):
+						print("WARNING: object %s contains more NeighbourFlags than NeighbourIds %s." % (muZoneId, '"NeighbourFlags"'))
+					
+					status, muDistrictId, zonepoints = read_zone_object(zone_object)
+					
+					mTransform = Matrix(np.linalg.inv(m) @ zone_object.matrix_world)
+					for i, zonepoint in enumerate(zonepoints):
+						zonepoint = list(zonepoint)
+						zonepoint = Vector(zonepoint)
+						zonepoint = mTransform @ zonepoint
+						zonepoints[i] = [zonepoint[0], zonepoint[2]]
+					
+					if status == 1:
+						return {"CANCELLED"}
+					
+					if muDistrictId == 0:
+						print("WARNING: object %s using an invalid %s. Assuming some value (164408)." % (muZoneId, '"muDistrictId"'))
+					
+					zonelist.append([muZoneId, [mauNeighbourId, mauNeighbourFlags, muDistrictId, muArenaId, unknown_0x40], zonepoints[:]])
+		
+		if len(instances) == 0 and len(instances_wheel) == 0 and len(instances_character) == 0 and resource_type != "InstanceList" and (resource_type != "PolygonSoupList" and resource_type != "Collision" and resource_type != "ZoneList"):
 			print("ERROR: no models in the proper structure. Nothing to export on this collection.")
 			return {"CANCELLED"}
 		
@@ -1659,6 +1926,11 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				if already_is_file == False:
 					mResourceIds.append([mCharacterSpecId, "CharacterSpec", id_to_int(mCharacterSpecId)])
 		
+		elif resource_type == "ZoneList":
+			zonelist_path = os.path.join(zonelist_dir, mZoneListId + ".dat")
+			write_zonelist(zonelist_path, zonelist)
+			mResourceIds.append([mZoneListId, "ZoneList", id_to_int(mZoneListId)])
+		
 		for model in models:
 			mModelId = model[0]
 			is_shared_asset = model[2]
@@ -1751,7 +2023,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			if status == 0:
 				mResourceIds.append([mSamplerStateId, "SamplerState", id_to_int(mSamplerStateId)])
 			else:
-				print("WARNING: SamplerState %s does not exist on library. Add it manually to the SamplerState folder." %mSamplerStateId)
+				print("ERROR: SamplerState %s does not exist on library. Add it manually to the SamplerState folder. Continuing to export." %mSamplerStateId)
 				mResourceIds.append([mSamplerStateId, "SamplerState", id_to_int(mSamplerStateId)])
 		
 		mResourceIds_ = [mResourceId[0] for mResourceId in mResourceIds]
@@ -1766,7 +2038,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			resources_table_path2 = os.path.join(directory_path, "IDs_" + track_unit_name + ".BNDL")
 			if os.path.isfile(resources_table_path2):
 				resources_table_path = resources_table_path2
-			
+		
 		elif resource_type == "GraphicsSpec":
 			resources_table_path = os.path.join(directory_path, "IDs_" + vehicle_name + ".BIN")
 		elif resource_type == "CharacterSpec":
@@ -1902,6 +2174,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			if os.path.isfile(resources_table_path):
 				if resource_type == "CharacterSpec" and os.path.isdir(shared_characters_dir):
 					status = pack_bundle_mw(resources_table_path, directory_path, "ALL_CHARS.BNDL")
+				elif resource_type == "ZoneList":
+					status = pack_bundle_mw(resources_table_path, directory_path, "PVS.BNDL")
 				else:
 					#status = pack_bundle_mw(resources_table_path, directory_path, main_collection.name + ".BNDL")
 					if resource_type == "GraphicsSpec" and debug_redirect_vehicle == True:
@@ -1918,7 +2192,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 	return {'FINISHED'}
 
 
-def read_object(object, resource_type, shared_dir, copy_uv_layer):
+def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vcolor2):
 	# Definitions
 	shared_material_dir = os.path.join(shared_dir, "Material")
 	#shared_vertex_descriptor_dir = os.path.join(shared_dir, "VertexDescriptor")
@@ -1933,6 +2207,8 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 	meshes_info = [[] for _ in range(num_meshes)]
 	object_center = []
 	object_radius = 1.0
+	submeshes_center = [[] for _ in range(num_meshes)]
+	submeshes_bounding_box = [[] for _ in range(num_meshes)]
 	
 	# Inits
 	mesh = object.data
@@ -1949,7 +2225,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 	
 	if num_meshes == 0:
 		print("ERROR: no materials applied on mesh %s." % mesh.name)
-		return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 1)
+		return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, 1)
 	
 	blend_index1 = bm.verts.layers.int.get("blend_index1")
 	blend_index2 = bm.verts.layers.int.get("blend_index2")
@@ -1986,7 +2262,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 			if mMaterialIds[mesh_index] == "":
 				if mesh.materials[mesh_index] == None:
 					print("ERROR: face without material found on mesh %s." % mesh.name)
-					return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 1)
+					return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, 1)
 				material_name = mesh.materials[mesh_index].name
 				#mMaterialIds[mesh_index] = material_name.split(".")[0]
 				mMaterialIds[mesh_index] = material_name				# Not splitting at ".001". Each one is identifyed as a unique material by Blender and so the exporter
@@ -1994,7 +2270,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 			
 			if len(face.verts) > 3:
 				print("ERROR: non triangular face on mesh %s." % mesh.name)
-				return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 1)
+				return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, 1)
 			
 			for vert in face.verts:
 				if vert.index not in vert_indices[mesh_index]:
@@ -2124,6 +2400,16 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 	max_vertex = (max(vertices_x), max(vertices_y), max(vertices_z))
 	min_vertex = (min(vertices_x), min(vertices_y), min(vertices_z))
 	
+	for mesh_index in range(0, num_meshes):
+		if len(indices_buffer[mesh_index]) == 0:
+			continue
+		
+		max_submesh_vertex_x = [max(v[0] for v in positions[mesh_index].values()), max(v[1] for v in positions[mesh_index].values()), max(v[2] for v in positions[mesh_index].values())]
+		min_submesh_vertex_x = [min(v[0] for v in positions[mesh_index].values()), min(v[1] for v in positions[mesh_index].values()), min(v[2] for v in positions[mesh_index].values())]
+		submeshes_center[mesh_index] = [(max_submesh_vertex_x[0] + min_submesh_vertex_x[0])*0.5, (max_submesh_vertex_x[1] + min_submesh_vertex_x[1])*0.5, (max_submesh_vertex_x[2] + min_submesh_vertex_x[2])*0.5]
+		
+		submeshes_bounding_box[mesh_index] = list(get_minimum_bounding_box(mesh, mesh_index))
+	
 	vertices_x.clear()
 	vertices_y.clear()
 	vertices_z.clear()
@@ -2153,6 +2439,10 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 			ao_layer_index = mesh_vertex_colors.keys().index("VColor1")
 		elif "vcolor1" in mesh_vertex_colors:
 			ao_layer_index = mesh_vertex_colors.keys().index("vcolor1")
+		elif "Col" in mesh_vertex_colors:
+			ao_layer_index = mesh_vertex_colors.keys().index("Col")
+		elif "col" in mesh_vertex_colors:
+			ao_layer_index = mesh_vertex_colors.keys().index("col")
 		else:
 			print("WARNING: no Ambient Occlusion or AO layer on mesh %s. Default AO colors will be used." % mesh.name)
 			ao_layer = False
@@ -2170,72 +2460,132 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 		ao_layer = False
 		vcolor2_layer = False
 	
-	normals = [{} for _ in range(num_meshes)]
-	colors = [{} for _ in range(num_meshes)]
-	colors2 = [{} for _ in range(num_meshes)]
-	for face in mesh.polygons:
-		if face.hide == False:
-			mesh_index = face.material_index
+	tangents_on_UV1 = False
+	tangents_on_UV2 = False
+	use_blender_calc_tangents = False	# In some cases it gives wrong values (1,0,0)
+	vertices_list = [[] for _ in range(num_meshes)]
+	for mesh_index in range(0, num_meshes):
+		if len(indices_buffer[mesh_index]) == 0:
+			continue
+		
+		mMaterialId = mMaterialIds[mesh_index]
+		mat = bpy.data.materials.get(mMaterialId)
+		
+		try:
+			shader_type = mat["shader_type"]
+		except:
+			shader_type = ""
 			
-			mat = bpy.data.materials.get(mMaterialIds[mesh_index])
-			try:
-				shader_type = mat["shader_type"]
-			except:
-				shader_type = ""
+		mShaderId, shader_type = get_mShaderID(shader_type, resource_type)
+		
+		if has_uv and use_blender_calc_tangents:
+			if mShaderId in ("A9_EF_09_00", "AB_EF_09_00", "A5_EF_09_00") and tangents_on_UV2 == False:
+				mesh.free_tangents()
+				mesh.calc_tangents(uvmap="UV2Map")
+				tangents_on_UV1 = False
+				tangents_on_UV2 = True
+			
+			elif tangents_on_UV1 == False:
+				mesh.free_tangents()
+				mesh.calc_tangents(uvmap="UVMap")
+				tangents_on_UV1 = True
+				tangents_on_UV2 = False
+		
+		for face in mesh.polygons:
+			if face.hide == True:
+				continue
+			
+			if mesh_index != face.material_index:
+				continue
 			
 			for loop_ind in face.loop_indices:
 				vert_index = vert_indices[mesh_index][loops[loop_ind].vertex_index]
-				if vert_index in normals[mesh_index]:
+				
+				if vert_index in vertices_list[mesh_index]:
 					continue
-				normals[mesh_index][vert_index] = loops[loop_ind].normal[:]
+				
+				vertices_list[mesh_index].append(vert_index)
+				
+				normal = list(loops[loop_ind].normal[:])
+				tangent = [0.0, 0.0, 0.0]
+				binormal = [0.0, 0.0, 0.0]
+				
+				if use_blender_calc_tangents:
+					tangent = list(loops[loop_ind].tangent[:])
+					binormal = list(loops[loop_ind].bitangent[:])
+				
+					if mShaderId == "2A_79_00_00":
+						binormal = [1.0, 1.0, 0.0]
+				
 				if ao_layer:
 					color = list(mesh_vertex_colors[ao_layer_index].data[loop_ind].color[:])
 					for i in range(0, 4):
 						if i < 3 and using_color_attributes == True:
 							color[i] = lin2s1(color[i])
-						color[i] = round(color[i]*255.0)
-					colors[mesh_index][vert_index] = color[:]
+						color[i] = round(color[i] * 255.0)
 				elif shader_type.lower() == "glass":
-					colors[mesh_index][vert_index] = [0, 0, 0, 179] #0.709
+					color = [0, 0, 0, 179] #0.709
 				elif shader_type.lower() == "glass_black":
-					colors[mesh_index][vert_index] = [0, 0, 0, 255] #1.0
+					color = [0, 0, 0, 255] #1.0
 				elif shader_type.lower() == "mirror" or shader_type == "VehicleNFS13_Mirror":
-					colors[mesh_index][vert_index] = [255, 255, 255, 255]
+					color = [255, 255, 255, 255]
+				elif mShaderId == "A9_EF_09_00":
+					color = [0, 0, 0, 179] #0.709
 				else:
-					colors[mesh_index][vert_index] = [255, 255, 255, 255]
-				if vcolor2_layer:
-					color = list(mesh_vertex_colors[vcolor2_layer_index].data[loop_ind].color[:])
+					color = [255, 255, 255, 255]
+				if vcolor2_layer and recalculate_vcolor2 == False:
+					# When some new face is added it might not have a proper vcolor2
+					color2 = list(mesh_vertex_colors[vcolor2_layer_index].data[loop_ind].color[:])
 					for i in range(0, 4):
 						if i < 3 and using_color_attributes == True:
-							color[i] = lin2s1(color[i])
-						color[i] = round(color[i]*255.0)
-					colors2[mesh_index][vert_index] = color[:]
+							color2[i] = lin2s1(color2[i])
+						color2[i] = round(color2[i] * 255.0)
 				else:
-					colors2[mesh_index][vert_index] = [0, 0, 0, 0]
-					#colors2[mesh_index][vert_index] = [119, 254, 144, 129]
-				mesh_vertices_buffer[mesh_index][vert_index][2] = normals[mesh_index][vert_index][:]
-				mesh_vertices_buffer[mesh_index][vert_index][4] = colors[mesh_index][vert_index][:]
-				mesh_vertices_buffer[mesh_index][vert_index][14] = colors2[mesh_index][vert_index][:]
+					#color2 = [0, 0, 0, 0]
+					#color2 = [119, 254, 144, 129]
+					
+					color2 = normal[:]
+					swizzle_normals(color2, normal, 0, "-Y")
+					swizzle_normals(color2, normal, 1, "+X")
+					swizzle_normals(color2, normal, 2, "+Z")
+					
+					color2 = (Vector(color2) * 0.5) + Vector((0.5,) * 3)
+					color2.resize_4d()
+					color2 = list(color2 * 255.0)
+					for i in range(0, 4):
+						color2[i] = round(color2[i])
+					
+				
+				mesh_vertices_buffer[mesh_index][vert_index][2] = normal[:]
+				mesh_vertices_buffer[mesh_index][vert_index][3] = tangent[:]
+				mesh_vertices_buffer[mesh_index][vert_index][4] = color[:]
+				mesh_vertices_buffer[mesh_index][vert_index][13] = binormal[:]
+				mesh_vertices_buffer[mesh_index][vert_index][14] = color2[:]
+				
 	
+	if use_blender_calc_tangents:
+		mesh.free_tangents()
+	mesh.free_normals_split()
 	bm.clear()
 	bm.free()
 	
 	for mesh_index in range(0, num_meshes):
 		if len(indices_buffer[mesh_index]) == 0:
 			continue
-		calculate_tangents(indices_buffer[mesh_index], mesh_vertices_buffer[mesh_index])
-		
-		vertices_buffer[mesh_index] = [mesh_vertices_buffer[mesh_index], mesh_indices[mesh_index]]
 		
 		mMaterialId = mMaterialIds[mesh_index]
 		mat = bpy.data.materials.get(mMaterialId)
 		try:
-			is_shared_asset = mat["is_shared_asset"]
+			shader_type = mat["shader_type"]
 		except:
-			is_shared_asset = False
+			shader_type = ""
+			
+		mShaderId, shader_type = get_mShaderID(shader_type, resource_type)
 		
-		if is_shared_asset == True:
-			material_path = os.path.join(shared_material_dir, mMaterialId + ".dat")
+		if use_blender_calc_tangents == False:
+			calculate_tangents(indices_buffer[mesh_index], mesh_vertices_buffer[mesh_index], mShaderId)
+		
+		vertices_buffer[mesh_index] = [mesh_vertices_buffer[mesh_index], mesh_indices[mesh_index]]
 		
 		meshes_info[mesh_index] = [mesh_index, mMaterialId]
 		
@@ -2267,7 +2617,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 		
 		if len(vertices_buffer[mesh_index]) >= 0xFFFF:
 			print("ERROR: number of vertices higher than the supported by the game on mesh %s. Each material cannot have more than 65535 vertices." % mesh.name)
-			return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 1)
+			return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, 1)
 		
 	
 	# Verifying if some material is not used
@@ -2277,23 +2627,23 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 			del meshes_info[mesh_index]
 			del indices_buffer[mesh_index]
 			del vertices_buffer[mesh_index]
+			del submeshes_bounding_box[mesh_index]
 		
 		num_meshes = num_meshes - len(not_used_material_slots)
 		
 		for mesh_index in range(0, num_meshes):
 			meshes_info[mesh_index][0] = mesh_index
 	
-	return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, 0)
+	return (meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, 0)
 
 
-def read_polygonsoup_object(object, translation, scale, resource_type):
+def read_polygonsoup_object(object, translation, scale, resource_type, track_unit_number):
 	PolygonSoupVertices = []
 	PolygonSoupPolygons = []
 	PolygonSoupPolygons_triangles = []
 	
 	# Inits
 	mesh = object.data
-	loops = mesh.loops
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
 	
@@ -2301,7 +2651,8 @@ def read_polygonsoup_object(object, translation, scale, resource_type):
 	edge_cosine2 = bm.faces.layers.int.get("edge_cosine2")
 	edge_cosine3 = bm.faces.layers.int.get("edge_cosine3")
 	edge_cosine4 = bm.faces.layers.int.get("edge_cosine4")
-	collision_tag0 = bm.faces.layers.int.get("collision_tag0")
+	#collision_tag0 = bm.faces.layers.int.get("collision_tag0")
+	collision_tag1 = bm.faces.layers.int.get("collision_tag1")
 	
 	for vert in bm.verts:
 		if vert.hide == False:
@@ -2334,26 +2685,30 @@ def read_polygonsoup_object(object, translation, scale, resource_type):
 				print("WARNING: face without material found on mesh %s." % mesh.name)
 				has_material = False
 			
-			if collision_tag0 == None:
-				mu16CollisionTag_part0 = 0
+			if collision_tag1 == None:
+				mu16CollisionTag_part1 = 0
 			else:
-				mu16CollisionTag_part0 = face[collision_tag0]
-				# all_faces_driveable = True
-				# if all_faces_driveable == True:
-					# if mu16CollisionTag_part0 == 0x2040 or mu16CollisionTag_part0 == 0x2000:
-						# mu16CollisionTag_part0 = 0x8001
-			#mu16CollisionTag_part1 = mesh.materials[material_index].name.split(".")[0]
+				mu16CollisionTag_part1 = face[collision_tag1]
+			
+			if resource_type == "InstanceList":
+				mu16CollisionTag_part1 = mu16CollisionTag_part1 + track_unit_number*0x10
+			
 			try:
-				mu16CollisionTag_part1 = mesh.materials[material_index].name.split(".")[0]
-				mu16CollisionTag_part1 = int(mu16CollisionTag_part1, 16)
+				mu16CollisionTag_part0 = mesh.materials[material_index].name.split(".")[0]
 			except:
-				#print("ERROR: face material name %s (collision tag) is not in the proper formating." % mesh.materials[material_index].name)
-				#return (1, [], [], 0)
-				if has_material:
-					print("WARNING: face material name %s (collision tag) is not in the proper formating. Setting it to 0xA010." % mesh.materials[material_index].name)
+				print("WARNING: setting a default collision tag to the face without material.")
+				if resource_type == "InstanceList":
+					mu16CollisionTag_part0 = "Cobble"
 				else:
-					print("WARNING: setting collision tag as 0x0000 to the face without material.")
-				mu16CollisionTag_part1 = 0x0000
+					mu16CollisionTag_part0 = "None"
+			
+			mu16CollisionTag_part0 = get_collision_tag(mu16CollisionTag_part0)
+			if mu16CollisionTag_part0 == -1 and has_material:
+				print("WARNING: face material name %s (collision tag) is not in the proper formating. Setting it to a default collision tag." % mesh.materials[material_index].name)
+				if resource_type == "InstanceList":
+					mu16CollisionTag_part0 = get_collision_tag("Cobble")
+				else:
+					mu16CollisionTag_part0 = get_collision_tag("None")
 			
 			mau8VertexIndices = []
 			for vert in face.verts:
@@ -2383,6 +2738,51 @@ def read_polygonsoup_object(object, translation, scale, resource_type):
 		return (1, [], [], 0)
 	
 	return (0, PolygonSoupVertices, PolygonSoupPolygons, mu8NumQuads)
+
+
+def read_zone_object(object):
+	zonepoints = []
+	muDistrictId = 0
+	
+	# Inits
+	mesh = object.data
+	bm = bmesh.new()
+	bm.from_mesh(mesh)
+	
+	for face in bm.faces:
+		if face.hide == True:
+			continue
+		
+		for vert in face.verts:
+			if vert.hide == True:
+				continue
+			zonepoints.append(vert.co[:])
+			
+		if len(zonepoints) >= 0xFF:
+			print("ERROR: number of vertices higher than the supported by the game zone object %s. It should have less than 255 vertices." % mesh.name)
+			return (1, 0, [])
+		
+		material_index = face.material_index
+		
+		has_material = True
+		try:
+			if mesh.materials[material_index] == None:
+				print("WARNING: DistrictId not set in the material name of the zone object %s." % mesh.name)
+				has_material = False
+		except:
+			print("WARNING: DistrictId not set in the material name of the zone object %s." % mesh.name)
+			has_material = False
+		
+		if has_material:
+			try:
+				muDistrictId = int(mesh.materials[material_index].name.split(".")[0])
+			except:
+				print("WARNING: DistrictId not proper set in the material name of the zone object %s. It should be an integer." % mesh.name)
+				muDistrictId = 0
+		else:
+			muDistrictId = 0
+	
+	return (0, muDistrictId, zonepoints)
 
 
 def read_vertex_descriptor(vertex_descriptor_path): 	#ok
@@ -2984,6 +3384,7 @@ def write_model(model_path, model, resource_type):	#ok
 		mu8NumStates = model_properties[1]
 		TintData = model_properties[2]
 		unknown_0x19 = model_properties[3]
+		lod_distances_game = model_properties[4]
 		
 		if mu8NumRenderables == 1:
 			mu8NumStates = 1
@@ -3085,7 +3486,10 @@ def write_model(model_path, model, resource_type):	#ok
 		lod_distances = []
 		if mu8NumRenderables == 1:
 			renderable_indices[0] = 0
-			lod_distances.append(maxLodDistance)
+			if lod_distances_game == []:
+				lod_distances.append(maxLodDistance)
+			else:
+				lod_distances.append(lod_distances_game[0])
 		else:
 			for i in range(0, muNumLodDistances):
 				lod_distances.append(minLodDistance*(i+1)*(i+1))
@@ -3220,8 +3624,9 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 		
 		object_center = renderable_properties[0]
 		object_radius = renderable_properties[1]
+		submeshes_bounding_box = renderable_properties[2]
 		mu16VersionNumber = 0xC
-		num_meshes = renderable_properties[2]
+		num_meshes = renderable_properties[3]
 		meshes_table_pointer = 0x20
 		flags0 = 0
 		flags1 = -1
@@ -3233,8 +3638,6 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 		mesh_header_size = 0x60
 		meshes_data_pointers = [meshes_data_pointer + mesh_header_size*x for x in range(num_meshes)]
 		
-		unknown_0x0 = [0.0, 0.0, 0.0]
-		unknown_0xC = 0
 		constant_0x10 = 5
 		constant_0x14 = 0
 		constant_0x18 = 0
@@ -3251,6 +3654,40 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 		constant_0x4C = 1
 		constant_0x50 = 2
 		constant_0x5C = 0
+		
+		for i in range(0, num_meshes):
+			coordinate_factor = 0x4000
+			max_value = abs(max(submeshes_bounding_box[i][0], key=abs))
+			test = round(max_value*coordinate_factor)
+			count = 0
+			while test > 0x7FFF:
+				count += 1
+				coordinate_factor /= 2
+				test = round(max_value*coordinate_factor)
+			
+			for j, coordinate in enumerate(submeshes_bounding_box[i][0]):
+				submeshes_bounding_box[i][0][j] = round(coordinate*coordinate_factor)
+			coordinate_factor = int(0x4000 + 0x80*count)
+			
+			scale_factor = 0x80
+			max_value = max(submeshes_bounding_box[i][1])
+			test = round(max_value*scale_factor)
+			count = 0
+			while test > 0xFF:
+				count += 1
+				scale_factor /= 2
+				test = round(max_value*scale_factor)
+			
+			for j, scale in enumerate(submeshes_bounding_box[i][1]):
+				submeshes_bounding_box[i][1][j] = round(scale*scale_factor)
+			scale_factor = int(0x80 + count)
+			
+			quaternion_factor = 0x7E
+			for j, quaternion in enumerate(submeshes_bounding_box[i][2]):
+				submeshes_bounding_box[i][2][j] = round(quaternion*quaternion_factor)
+			
+			submeshes_bounding_box[i].append([coordinate_factor, scale_factor, quaternion_factor])
+		
 		
 		mMaterialIds = [0]*num_meshes
 		pointers_1 = [0]*num_meshes
@@ -3308,8 +3745,29 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 		
 		for i in range(0, num_meshes):
 			f.seek(meshes_data_pointers[i], 0)
-			f.write(struct.pack('<3f', *unknown_0x0))
-			f.write(struct.pack('<i', unknown_0xC))
+			
+			f.write(struct.pack('<h', submeshes_bounding_box[i][0][0]))		#ok, XZY (021)
+			f.write(struct.pack('<H', submeshes_bounding_box[i][3][0]))
+			f.write(struct.pack('<h', submeshes_bounding_box[i][0][2]))
+			f.write(struct.pack('<h', submeshes_bounding_box[i][0][1]))
+			
+			# Scale
+			#f.write(struct.pack('<B', submeshes_bounding_box[i][1][1]))	#nok, ZYX (210)
+			#f.write(struct.pack('<B', submeshes_bounding_box[i][1][2]))
+			#f.write(struct.pack('<B', submeshes_bounding_box[i][1][0]))
+			f.write(struct.pack('<B', submeshes_bounding_box[i][1][2]))		#ok, ZYX (210)
+			f.write(struct.pack('<B', submeshes_bounding_box[i][1][1]))
+			f.write(struct.pack('<B', submeshes_bounding_box[i][1][0]))
+			
+			
+			f.write(struct.pack('<B', submeshes_bounding_box[i][3][1]))
+			
+			#f.write(struct.pack('<bbbb', *submeshes_bounding_box[i][2]))	#nok, WZXy (0312), WZYx (0321)
+			f.write(struct.pack('<b', submeshes_bounding_box[i][2][0]))
+			f.write(struct.pack('<b', submeshes_bounding_box[i][2][3]))
+			f.write(struct.pack('<b', submeshes_bounding_box[i][2][2]))
+			f.write(struct.pack('<b', submeshes_bounding_box[i][2][1]))
+			
 			f.write(struct.pack('<i', constant_0x10))
 			f.write(struct.pack('<i', constant_0x14))
 			f.write(struct.pack('<i', constant_0x18))
@@ -3386,30 +3844,30 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 					elif semantic_type == "COLOR":
 						values = color
 					elif semantic_type == "TEXCOORD1":
-						values = [uv1[0], -uv1[1]]
+						values = [uv1[0], 1.0 - uv1[1]]
 					elif semantic_type == "TEXCOORD2":
 						if data_type[0] == "4B":
 							values = color2
 						else:
-							values = [uv2[0], -uv2[1]]
+							values = [uv2[0], 1.0 - uv2[1]]
 					elif semantic_type == "TEXCOORD3":
 						if data_type[0] == "4B":
 							values = color2
 						else:
-							values = [uv3[0], -uv3[1]]
+							values = [uv3[0], 1.0 - uv3[1]]
 					elif semantic_type == "TEXCOORD4":
 						if data_type[0] == "4B":
 							values = color2
 						else:
-							values = [uv4[0], -uv4[1]]
+							values = [uv4[0], 1.0 - uv4[1]]
 					elif semantic_type == "TEXCOORD5":		#custom normal
 						if data_type[0] == "2e":
-							values = [uv5[0], -uv5[1]]
+							values = [uv5[0], 1.0 - uv5[1]]
 						else:
 							values = normal
 					elif semantic_type == "TEXCOORD6":
 						if data_type[0] == "2e":
-							values = [uv6[0], -uv6[1]]
+							values = [uv6[0], 1.0 - uv6[1]]
 						else:
 							values = normal
 					elif semantic_type == "TEXCOORD7":
@@ -3662,27 +4120,37 @@ def write_raster(raster_path, raster): #ok
 		depth = 1
 	
 	with open(raster_path, "wb") as f, open(raster_body_path, "wb") as g:
-		unk1 = 1
-		#unk2 = 0x30		# normal is 0x20
-		unk2 = raster[1][0][0]
-		mu32VersionNumber = 0x7
+		usage = 1
+		dimension = raster[1][0][1]
 		format = get_raster_format(dwFourCC)
-		dimension = 1
-		main_mipmap = 1
+		#flags = 0x30		# normal is 0x20
+		flags = raster[1][0][0]
+		array_size = 1
+		#main_mipmap = 1
+		main_mipmap = raster[1][0][2]
 		mipmap = mipMapCount
 		padding_texture = calculate_padding(len(data), 0x80)
 		
+		if dimension == 1:	 # 1D
+			dimension = 6
+		elif dimension == 2: # 2D
+			dimension = 7
+		elif dimension == 3: # 3D
+			dimension = 8
+		elif dimension == 4: # 4D
+			dimension = 9
+		
 		f.write(struct.pack('<i', 0))
-		f.write(struct.pack('<i', unk1))
-		f.write(struct.pack('<i', mu32VersionNumber))
+		f.write(struct.pack('<i', usage))
+		f.write(struct.pack('<i', dimension))
 		f.write(struct.pack('<i', 0))
 		f.write(struct.pack('<i', 0))
 		f.write(struct.pack('<i', 0))
 		f.write(struct.pack('<i', 0))
 		f.write(struct.pack('<i', format))
-		f.write(struct.pack('<i', unk2))
+		f.write(struct.pack('<i', flags))
 		f.write(struct.pack('<HHH', width, height, depth))
-		f.write(struct.pack('<H', dimension))
+		f.write(struct.pack('<H', array_size))
 		f.write(struct.pack('<BB', main_mipmap, mipmap))
 		f.write(struct.pack('<H', 0))
 		
@@ -3872,6 +4340,130 @@ def write_polygonsouplist(polygonsouplist_path, PolygonSoups):
 		#f.write(bytearray([0])*0x60)
 		padding = calculate_padding(miDataSize, 0x10)
 		f.write(bytearray([0])*padding)
+	
+	return 0
+
+
+def write_zonelist(zonelist_path, zones):
+	#zones.append([muZoneId, [mauNeighbourId, mauNeighbourFlags, muDistrictId, muArenaId, unknown_0x40], zonepoints[:]])
+	os.makedirs(os.path.dirname(zonelist_path), exist_ok = True)
+	
+	with open(zonelist_path, "wb") as f: 
+		mpZones = 0x20
+		muTotalZones = len(zones)
+		muTotalPoints = sum(len(zone[-1]) for zone in zones)
+		const_0x18 = 0x3
+		
+		mpNeighbour0 = mpZones + muTotalZones*0x50
+		mpNeighbours = mpNeighbour0
+		#mauTotalNeighbours = sum(len(zone[1][0]) for zone in zones if (len(zone[1][0]) % 2) == 0 else len(zone[1][0]) + 1)
+		mauTotalNeighbours = 0
+		for zone in zones:
+			mTotalNeighbours = len(zone[1][0])
+			if mTotalNeighbours % 2 == 0:
+				mauTotalNeighbours += mTotalNeighbours
+			else:
+				mauTotalNeighbours += mTotalNeighbours + 1
+		
+		mpPoints = mpNeighbour0 + mauTotalNeighbours*0x8
+		padding = calculate_padding(mpPoints, 0x10)
+		mpPoints += padding
+		
+		mpuZonePointStarts = mpPoints + muTotalPoints*0x10
+		padding = calculate_padding(mpuZonePointStarts, 0x10)
+		mpuZonePointStarts += padding
+		
+		mpiZonePointCounts = mpuZonePointStarts + muTotalZones*0x4
+		padding = calculate_padding(mpiZonePointCounts, 0x10)
+		mpiZonePointCounts += padding
+		
+		miTotalNumPoints = 0
+		mpZoneDict = {}
+		for i in range(0, muTotalZones):
+			muZoneId = zones[i][0]
+			mpZoneDict[muZoneId] = mpZones + 0x50*i
+		
+		
+		#Writing
+		f.write(struct.pack('<I', mpPoints))
+		f.write(struct.pack('<I', mpZones))
+		f.write(struct.pack('<I', mpuZonePointStarts))
+		f.write(struct.pack('<I', mpiZonePointCounts))
+		f.write(struct.pack('<I', muTotalZones))
+		f.write(struct.pack('<I', muTotalPoints))
+		f.write(struct.pack('<B', const_0x18))
+		
+		f.seek(mpZones, 0)
+		for i in range(0, muTotalZones):
+			zone = zones[i]
+			muZoneId, [mauNeighbourId, mauNeighbourFlags, muDistrictId, muArenaId, unknown_0x40], zonepoints = zone
+			miNumPoints = len(zonepoints)
+			miNumNeighbours = len(mauNeighbourId)
+			mAabbMinX = min(zonepoint[0] for zonepoint in zonepoints)
+			mAabbMaxX = max(zonepoint[0] for zonepoint in zonepoints)
+			mAabbMinZ = min(zonepoint[1] for zonepoint in zonepoints)
+			mAabbMaxZ = max(zonepoint[1] for zonepoint in zonepoints)
+			
+			f.seek(mpZones + 0x50*i, 0)
+			f.write(struct.pack('<I', mpPoints))
+			f.write(struct.pack('<I', 0))
+			f.write(struct.pack('<I', 0))
+			f.write(struct.pack('<I', 0))
+			
+			# Bounding box
+			f.write(struct.pack('<fhhfI', mAabbMinX, -1, -129, mAabbMinZ, 0))
+			f.write(struct.pack('<fhhfI', mAabbMaxX, -1, 32639, mAabbMaxZ, 0))
+			
+			if miNumNeighbours == 0:
+				f.write(struct.pack('<I', 0))
+			else:
+				f.write(struct.pack('<I', mpNeighbours))	# mpSafeNeighbours or mpUnsafeNeighbours?
+			f.write(struct.pack('<H', muZoneId))
+			f.write(struct.pack('<H', 0))
+			f.write(struct.pack('<I', muDistrictId))
+			f.write(struct.pack('<I', muArenaId))
+			
+			
+			f.write(struct.pack('<H', unknown_0x40))	# miNumUnsafeNeighbours? 0 or 1
+			f.write(struct.pack('<B', miNumPoints))
+			f.write(struct.pack('<B', miNumNeighbours))	# miNumSafeNeighbours?
+			f.write(struct.pack('<I', 0))
+			f.write(struct.pack('<I', 0))
+			f.write(struct.pack('<I', 0))
+			
+			f.seek(mpNeighbours, 0)
+			for j in range(0, miNumNeighbours):
+				f.seek(mpNeighbours + 0x8*j, 0)
+				try:
+					f.write(struct.pack('<I', mpZoneDict[mauNeighbourId[j]]))
+					f.write(struct.pack('<I', mauNeighbourFlags[j]))
+				except:
+					print("ERROR: zone object %d is missing. It is referenced as a neighbour of zone %d. Writing a null one, but it might crash your game." % (mauNeighbourId[j], muZoneId))
+					f.write(struct.pack('<I', 0))
+					f.write(struct.pack('<I', 0))
+			
+			f.seek(mpPoints, 0)
+			for j in range(0, miNumPoints):
+				f.write(struct.pack('<2f', *zonepoints[j]))
+				f.write(struct.pack('<2I', 0, 0))
+			
+			f.seek(mpuZonePointStarts + 0x4*i, 0)
+			f.write(struct.pack('<I', miTotalNumPoints))
+			
+			f.seek(mpiZonePointCounts + 0x2*i, 0)
+			f.write(struct.pack('<H', miNumPoints))
+			
+			mpPoints += miNumPoints*0x10
+			mpNeighbours += miNumNeighbours*0x8
+			padding = calculate_padding(mpNeighbours, 0x10)
+			mpNeighbours += padding
+			
+			miTotalNumPoints += miNumPoints
+		
+		padding = calculate_padding(mpiZonePointCounts + 0x2*muTotalZones, 0x10)
+		f.write(bytearray([0])*padding)
+	
+	return 0
 
 
 def write_resources_table(resources_table_path, mResourceIds, resource_type, write_header):
@@ -3887,6 +4479,8 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 			muResourceEntriesOffset = 0xD0
 			mauResourceDataOffset = [0x0, 0x0, 0x0, 0x0]
 			if resource_type == "CharacterSpec":
+				muFlags = 0x1
+			elif resource_type == "ZoneList":
 				muFlags = 0x1
 			else:
 				muFlags = 0x9
@@ -3907,6 +4501,8 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 			f.write(struct.pack("<i", -1))
 			if resource_type == "CharacterSpec":
 				pass
+			elif resource_type == "ZoneList":
+				pass
 			else:
 				f.write(b'GRAPHICS')
 				f.seek(0x7, 1)
@@ -3915,7 +4511,7 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 				f.write(b'NAV')
 			
 			f.seek(muHeaderOffset, 0)
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.1 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.2 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(muResourceEntriesOffset, 0)
 		
@@ -4505,7 +5101,7 @@ def merge_resources_table(ids_table_path, resources_table_path):
 		muResourceEntriesOffset += 0x60
 		f.write(header_data)
 		if text != b'Resources generated by NFSMW 2012 Exporter':
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.1 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.2 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(0x10, 0)
 			f.write(struct.pack("<I", muResourceEntriesOffset))
@@ -4762,7 +5358,22 @@ def calculate_packed_normals(normal):
 	return packed_normal
 
 
-def calculate_tangents(indices_buffer, mesh_vertices_buffer):
+def swizzle_normals(result, vec, index, prop):
+        if prop == '+X':
+            result[index] = vec[0]
+        elif prop == '-X':
+            result[index] = -vec[0]
+        elif prop == '+Y':
+            result[index] = vec[1]
+        elif prop == '-Y':
+            result[index] = -vec[1]
+        elif prop == '+Z':
+            result[index] = vec[2]
+        elif prop == '-Z':
+            result[index] = -vec[2]
+
+
+def calculate_tangents(indices_buffer, mesh_vertices_buffer, mShaderId):
 	tan1 = {}
 	tan2 = {}
 	
@@ -4775,9 +5386,14 @@ def calculate_tangents(indices_buffer, mesh_vertices_buffer):
 		v2 = mesh_vertices_buffer[i2][1]
 		v3 = mesh_vertices_buffer[i3][1]
 		
-		w1 = mesh_vertices_buffer[i1][5]
-		w2 = mesh_vertices_buffer[i2][5]
-		w3 = mesh_vertices_buffer[i3][5]
+		if mShaderId in ("A9_EF_09_00", "AB_EF_09_00", "A5_EF_09_00"):
+			w1 = mesh_vertices_buffer[i1][6]
+			w2 = mesh_vertices_buffer[i2][6]
+			w3 = mesh_vertices_buffer[i3][6]
+		else:
+			w1 = mesh_vertices_buffer[i1][5]
+			w2 = mesh_vertices_buffer[i2][5]
+			w3 = mesh_vertices_buffer[i3][5]
 		
 		x1 = v2[0] - v1[0]
 		x2 = v3[0] - v1[0]
@@ -4837,6 +5453,9 @@ def calculate_tangents(indices_buffer, mesh_vertices_buffer):
 			n = np.asarray(vertex[2])
 			t = np.asarray(tan1[index])
 			
+			if mShaderId == "2A_79_00_00":
+				t = t * -1.0
+			
 			#if use_Rotation:
 			#	n = np.asarray([n[0], n[2], -n[1]])
 			
@@ -4847,24 +5466,39 @@ def calculate_tangents(indices_buffer, mesh_vertices_buffer):
 			if np.any(np.isnan(tmp)):
 				tmp = [0.0, 0.0, 1.0]
 			
-			# Calculate handedness
-			t_2 = np.asarray(tan2[index])
-			signal = -1.0 if (np.dot(np.cross(n, t), t_2) < 0.0) else 1.0
-			
 			mesh_vertices_buffer[index][3] = tmp[:]
 			
-			#binormal = np.cross(n, t) #bad result
-			binormal = np.cross(t, n)
+			# Calculate handedness
+			#t_2 = np.asarray(tan2[index])
+			#signal = -1.0 if (np.dot(np.cross(n, t), t_2) < 0.0) else 1.0
+			##if mShaderId == "2A_79_00_00":
+			##	tmp[0] = -1.0 * tmp[0]
+			##	tmp[1] = -1.0 * tmp[1]
+			##	tmp[2] = -1.0 * tmp[2]
+			
+			##binormal = np.cross(n, t) #bad result
+			#binormal = np.cross(t, n)
+			#if mShaderId == "2A_79_00_00":
+			#	binormal = np.cross(n, t)
+			#binormal = binormal/np.linalg.norm(binormal)
+			#mesh_vertices_buffer[index][13] = binormal[:]
+			
+			##tangents[a][0] = signal*tmp[0]
+			##tangents[a][1] = signal*tmp[1]
+			##tangents[a][2] = signal*tmp[2]
+			
+			##tangents[a][0] =  tmp[0]
+			##tangents[a][1] =  tmp[2]
+			##tangents[a][2] = -tmp[1]
+			
+			# Binormal (or bitangent)
+			t_2 = np.asarray(tan2[index])
+			binormal_sign = -1.0 if (np.dot(np.cross(n, tmp), t_2) < 0.0) else 1.0
+			binormal = binormal_sign * np.cross(n, tmp)
 			binormal = binormal/np.linalg.norm(binormal)
+			if mShaderId == "2A_79_00_00":
+				binormal = np.asarray((1.0, 1.0, 0.0))
 			mesh_vertices_buffer[index][13] = binormal[:]
-			
-			#tangents[a][0] = signal*tmp[0]
-			#tangents[a][1] = signal*tmp[1]
-			#tangents[a][2] = signal*tmp[2]
-			
-			#tangents[a][0] =  tmp[0]
-			#tangents[a][1] =  tmp[2]
-			#tangents[a][2] = -tmp[1]
 	
 	return 0
 
@@ -5427,12 +6061,159 @@ def get_mShaderID(shader_description, resource_type):	#ok
 			elif resource_type == "GraphicsSpec":
 				shader_description = 'VehicleNFS13_BodyPaint_Livery'
 				mShaderId = shaders[shader_description]
+			elif resource_type == "WheelGraphicsSpec":
+				shader_description = 'VehicleNFS13_Wheel_Textured_Roughness'
+				mShaderId = shaders[shader_description]
 			elif resource_type == "CharacterSpec":
 				shader_description = 'CharacterNew_Opaque_Textured_Normal_Spec_VertexAO'
 				mShaderId = shaders[shader_description]
 	
 	mShaderId = shaders[shader_description]
 	return (mShaderId, shader_description)
+
+
+def get_collision_tag(mu16CollisionTag_part0):
+	mu16CollisionTag_part0 = mu16CollisionTag_part0.lower()
+	collisionTag = {'tarmac': 0x0003,
+				    'tarmac_dry': 0x6003,
+				    'tarmac_halfwet': 0x2003,
+				    'tarmac_leaves': 0x2003,
+				    'tarmac_leaves_dry': 0xC003,
+				    'tarmac_leaves_halfwet': 0x8003,
+				    'gutter': 0x0003,
+				    'gutter_dry': 0x8003,
+				    'gutter_halfWet': 0x4003,
+				    'gutter_leaves': 0x0003,
+				    'gutter_leaves_dry': 0xA003,
+				    'gutter_leaves_halfwet': 0x6003,
+				    'urbanoffroad': 0x4001,
+				    'urbanoffroad_dry': 0xE001,
+				    'urbanoffroad_wet': 0x6001,
+				    'urbanoffroad_halfwet': 0xA001,
+				    'urbanoffroad_leaves': 0x4001,
+				    'urbanoffroad_leaves_dry': 0x0001,
+				    'urbanoffroad_leaves_halfwet': 0xC001,
+				    'cobble': 0x2001,
+				    'concrete_driveable': 0xC001,
+				    'dirt': 0xE001,
+				    'grass': 0x8001,
+				    'metal': 0xA001,
+				    'sand': 0xC001,
+				    'slow': 0xE001,
+				    'standing_water': 0x0001,
+				    'teflon': 0x4001,
+				    'teflon_no_grip': 0x6001,
+				    'wood': 0xE001,
+					'none': 0x0000}
+	
+	
+	if mu16CollisionTag_part0 in collisionTag:
+		return collisionTag[mu16CollisionTag_part0]
+	else:
+		try:
+			return int(mu16CollisionTag_part0, 16)
+		except:
+			return -1
+
+
+def get_neighbour_flags_code(NeighbourFlag):
+	NeighbourFlags = {'E_RENDERFLAG_NONE': 0x0,
+				'E_NEIGHBOURFLAG_RENDER': 0x1,
+				'E_NEIGHBOURFLAG_UNKNOWN_2': 0x2,
+				'E_NEIGHBOURFLAG_IMMEDIATE': 0x3}
+	
+	if NeighbourFlag in NeighbourFlags:
+		return NeighbourFlags[NeighbourFlag]
+	
+	return NeighbourFlag
+
+
+def get_minimum_bounding_box(mesh, index):
+	
+	def convex_hull_bases(mesh, index):
+		bm = bmesh.new()
+		bm.from_mesh(mesh)
+		
+		# Getting vertices
+		verts = []
+		for face in bm.faces:
+			if face.hide == False:
+				mesh_index = face.material_index
+				
+				if mesh_index != index:
+					continue
+				
+				for vert in face.verts:
+					if vert in verts:
+						continue
+					verts.append(vert)
+		
+		# Getting convex hull
+		chull_out = bmesh.ops.convex_hull(bm, input=verts, use_existing_faces=False)
+
+		chull_geom = chull_out["geom"]
+		chull_points = np.array([bmelem.co for bmelem in chull_geom if isinstance(bmelem, bmesh.types.BMVert)])
+
+		bases = []
+
+		for elem in chull_geom:
+			if not isinstance(elem, bmesh.types.BMFace):
+				continue
+			if len(elem.verts) != 3:
+				continue
+
+			face_normal = elem.normal
+			if np.allclose(face_normal, 0, atol=0.00001):
+				continue
+
+			for e in elem.edges:
+				v0, v1 = e.verts
+				edge_vec = (v0.co - v1.co).normalized()
+				co_tangent = face_normal.cross(edge_vec)
+				basis = (edge_vec.copy(), co_tangent.copy(), face_normal.copy())
+				bases.append(basis)
+		
+		bm.free()
+		
+		return (chull_points, bases)
+		
+
+	def rotating_calipers(hull_points: np.ndarray, bases):
+		min_bb_basis = None
+		min_bb_min = None
+		min_bb_max = None
+		min_vol = math.inf
+		for basis in bases:
+			rot_points = hull_points.dot(np.linalg.inv(basis))
+			# Equivalent to: rot_points = hull_points.dot(np.linalg.inv(np.transpose(basis)).T)
+
+			bb_min = rot_points.min(axis=0)
+			bb_max = rot_points.max(axis=0)
+			volume = (bb_max - bb_min).prod()
+			if volume < min_vol:
+				min_bb_basis = basis
+				min_vol = volume
+
+				min_bb_min = bb_min
+				min_bb_max = bb_max
+
+		return np.array(min_bb_basis), min_bb_max, min_bb_min
+	
+	chull_points, bases = convex_hull_bases(mesh, index)
+	bb_basis, bb_max, bb_min = rotating_calipers(chull_points, bases)
+	
+	bb_basis_mat = bb_basis.T
+	
+	bb_dim = bb_max - bb_min
+	bb_dim = (bb_max - bb_min) + Vector((0.2, 0.2, 0.2))
+	bb_center = (bb_max + bb_min) / 2.0
+	
+	mat = Matrix.Translation(bb_center.dot(bb_basis)) @ Matrix(bb_basis_mat).to_4x4() @ Matrix(np.identity(3) * bb_dim / 2.0).to_4x4()
+	translation = mat.to_translation()
+	scale = mat.to_scale()
+	quaternion = mat.to_quaternion()
+	
+	return (list(translation[:]), list(scale[:]), list(quaternion[:]))
 
 
 def resourcetype_to_type_id(resource_type):
@@ -5450,7 +6231,8 @@ def resourcetype_to_type_id(resource_type):
 					   'LightInstanceList' : '13_02_00_00',
 					   'NavigationMesh' : '68_00_00_00',
 					   'PropInstanceList' : '18_02_00_00',
-					   'ZoneHeader' : '06_02_00_00'}
+					   'ZoneHeader' : '06_02_00_00',
+					   'ZoneList' : '90_00_00_00'}
 	
 	return resources_types[resource_type]
 
@@ -5619,37 +6401,54 @@ class ExportNFSMW(Operator, ExportHelper):
 			default=True,
 			)
 	
+	recalculate_vcolor2: BoolProperty(
+			name="Recalculate vertex normal colors (vcolor2)",
+			description="Check in order to recalculate vertex normal colors. Useful when a game model has been edited",
+			default=False,
+			)
+	
 	ignore_hidden_meshes: BoolProperty(
 			name="Ignore hidden meshes",
 			description="Check in order to not export the hidden meshes",
 			default=True,
 			)
 	
+	force_shared_asset_as_false: EnumProperty(
+		name="Include shared assets",
+		options={'ENUM_FLAG'},
+		items=(
+			  ('MODEL', "Model", "", "MESH_DATA", 2),
+			  ('MATERIAL', "Material", "", "MATERIAL", 4),
+			  ('TEXTURE', "Texture", "", "TEXTURE", 8),
+		),
+		description="Which kind of shared asset to force",
+		#default={'EMPTY', 'CAMERA', 'LIGHT', 'ARMATURE', 'MESH', 'OTHER'},
+		)
+	
+	debug_shared_not_found: BoolProperty(
+		name="Resolve is_shared_asset not found",
+		description="Check in order to allow setting is_shared_asset as False if an asset is not found in the default library",
+		default=True,
+		)
+	
+	debug_use_shader_material_parameters: BoolProperty(
+		name="Use default shader parameters",
+		description="Check in order to apply the default shader parameters on materials",
+		default=False,
+		)
+	
+	debug_use_default_samplerstates: BoolProperty(
+		name="Use default sampler states",
+		description="Check in order to apply the default sampler states on materials",
+		default=False,
+		)
+	
 	if bpy.context.preferences.view.show_developer_ui == True:
-		debug_shared_not_found: BoolProperty(
-			name="Resolve is_shared_asset not found",
-			description="Check in order to allow setting is_shared_asset as False if an asset is not found in the default library",
-			default=True,
-			)
-		
-		debug_use_shader_material_parameters: BoolProperty(
-			name="Use default shader parameters",
-			description="Check in order to apply the default shader parameters on materials",
-			default=False,
-			)
-		
-		debug_use_default_samplerstates: BoolProperty(
-			name="Use default sampler states",
-			description="Check in order to apply the default sampler states on materials",
-			default=False,
-			)
-		
 		#change_vehicle: StringProperty(
 		#	name="Export to another vehicle",
 		#	description="Write the vehicle you want your model to replace",
 		#	default="",
 		#	)
-		
 		debug_redirect_vehicle: BoolProperty(
 			name="Export to another vehicle",
 			description="Check in order to redirect the exported vehicle to another one",
@@ -5665,9 +6464,6 @@ class ExportNFSMW(Operator, ExportHelper):
 	else:
 		debug_redirect_vehicle = False
 		debug_new_vehicle_name = ""
-		debug_shared_not_found = False
-		debug_use_shader_material_parameters = False
-		debug_use_default_samplerstates = False
 	
 	force_rotation: BoolProperty(
 		name="Force rotation on objects",
@@ -5693,8 +6489,10 @@ class ExportNFSMW(Operator, ExportHelper):
 		
 		global_matrix = axis_conversion(from_forward='Z', from_up='Y', to_forward=self.axis_forward, to_up=self.axis_up).to_4x4()
 		
-		status = main(context, self.filepath, self.pack_bundle_file, self.ignore_hidden_meshes, self.copy_uv_layer, self.force_rotation, [False, False, False], self.global_rotation,
-					  self.debug_shared_not_found, self.debug_use_shader_material_parameters, self.debug_use_default_samplerstates, self.debug_redirect_vehicle, self.debug_new_vehicle_name, global_matrix)
+		status = main(context, self.filepath, self.pack_bundle_file, self.ignore_hidden_meshes, self.copy_uv_layer, self.recalculate_vcolor2, self.force_rotation, [False, False, False], self.global_rotation,
+					  self.force_shared_asset_as_false, self.debug_shared_not_found, self.debug_use_shader_material_parameters,
+					  self.debug_use_default_samplerstates, self.debug_redirect_vehicle, self.debug_new_vehicle_name, global_matrix)
+		
 		if status == {"CANCELLED"}:
 			self.report({"ERROR"}, "Exporting has been cancelled. Check the system console for information.")
 		return status
@@ -5716,20 +6514,37 @@ class ExportNFSMW(Operator, ExportHelper):
 		box.prop(operator, "pack_bundle_file")
 		box.prop(operator, "ignore_hidden_meshes")
 		box.prop(operator, "copy_uv_layer")
+		box.prop(operator, "recalculate_vcolor2")
 		box.prop(operator, "force_rotation")
 		if operator.force_rotation == True:
 			box.prop(operator, "global_rotation")
 		
 		##
+		box = layout.box()
+		split = box.split(factor=0.75)
+		col = split.column(align=True)
+		col.label(text="Debug options", icon="MODIFIER")
+		
+		#box.prop(operator, "force_shared_asset_as_false")
+		
+		#row = box.row(align=True)
+		#row.label(text="Include shared assets")
+		#row.use_property_split = False
+		#row.prop(operator, "force_shared_model_as_false", toggle=True, text="", icon="MESH_DATA")
+		#row.prop(operator, "force_shared_material_as_false", toggle=True, text="", icon="MATERIAL")
+		#row.prop(operator, "force_shared_texture_as_false", toggle=True, text="", icon="TEXTURE")
+		
+		row = box.row(align=True)
+		row.label(text="Include shared assets")
+		row.use_property_split = False
+		row.prop_enum(operator, "force_shared_asset_as_false", 'MODEL', text="Model", icon="MESH_DATA")
+		row.prop_enum(operator, "force_shared_asset_as_false", 'MATERIAL', text="Material", icon="MATERIAL")
+		row.prop_enum(operator, "force_shared_asset_as_false", 'TEXTURE', text="Texture", icon="TEXTURE")
+		
+		box.prop(operator, "debug_shared_not_found")
+		box.prop(operator, "debug_use_shader_material_parameters")
+		box.prop(operator, "debug_use_default_samplerstates")
 		if bpy.context.preferences.view.show_developer_ui == True:
-			box = layout.box()
-			split = box.split(factor=0.75)
-			col = split.column(align=True)
-			col.label(text="Debug options", icon="MODIFIER")
-			
-			box.prop(operator, "debug_shared_not_found")
-			box.prop(operator, "debug_use_shader_material_parameters")
-			box.prop(operator, "debug_use_default_samplerstates")
 			box.prop(operator, "debug_redirect_vehicle")
 			if operator.debug_redirect_vehicle == True:
 				box.prop(operator, "debug_new_vehicle_name")
