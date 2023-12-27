@@ -14,6 +14,7 @@ def custom_shaders():
 	shaders['VehicleNFS13_Tyre'] = '9B_EF_09_00'
 	shaders['Tyre'] = '9B_EF_09_00'
 	shaders['Tire'] = '9B_EF_09_00'
+	shaders['Tire_test'] = 'B3_EF_09_00'
 	shaders['Licenseplate'] = '7E_EF_09_00'
 	shaders['LicensePlate'] = '7E_EF_09_00'
 	shaders['License_Plate'] = '7E_EF_09_00'
@@ -568,7 +569,18 @@ def get_default_material_parameters(shader_type):
 						   (0.00039999998989515007, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0),
 						   (0.0, 0.0, 0.0, 0.0)]
 		parameters_Names = ['PbrMaterialDustColour', 'PbrMaterialDirtColour', 'PbrMaterialClearcoatSpecular', 'PbrMaterialClearcoatFresnel', 'g_flipUvsOnFlippedTechnique']
-
+	
+	elif shader_type.lower() == "tire_test":
+		parameters_Indices = [3, 2, 1, 0, 4]
+		parameters_Ones = [1, 1, 1, 1, 1]
+		parameters_NamesHash = [529556121, 2580468578, 3057425025, 3447747285, 3998419168]
+		parameters_Data = [(0.07227185368537903, 0.061246052384376526, 0.05126945674419403, 0.899183452129364),
+						   (0.27049779891967773, 0.24228112399578094, 0.21223075687885284, 0.047659896314144135),
+						   (0.00039999998989515007, 0.0, 0.0, 0.0),
+						   (0.0, 0.0, 0.0, 0.0),
+						   (0.0, 0.0, 0.0, 0.0)]
+		parameters_Names = ['PbrMaterialDustColour', 'PbrMaterialDirtColour', 'PbrMaterialClearcoatSpecular', 'PbrMaterialClearcoatFresnel', 'g_flipUvsOnFlippedTechnique']
+	
 	else:
 		status = 1
 	
@@ -698,11 +710,16 @@ def	get_default_mRasterId(shader_type, mShaderId, raster_type, resource_type):
 		elif raster_type == 'InternalNormalTextureSampler':
 			mRasterId = "06_88_13_00"
 		elif raster_type == 'CrackedGlassNormalTextureSampler':
-			mRasterId = "30_A7_06_00"
+			mRasterId = "80_07_11_00"
+			#mRasterId = "30_A7_06_00"
 		elif raster_type == 'SpecularTextureSampler':
 			mRasterId = "30_A7_06_00"
 		elif raster_type == 'CrumpleTextureSampler':
-			mRasterId = "49_02_06_00"
+			#mRasterId = "49_02_06_00"
+			mRasterId = "E0_74_8F_47"
+			raster_properties = [0x20, 2, 0]
+			is_raster_shared_asset = False
+			raster_path = "create_texture"
 		elif raster_type == 'EffectsTextureSampler':
 			#mRasterId = "1C_8D_0D_00"
 			mRasterId = "30_A7_06_00"
