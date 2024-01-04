@@ -20,7 +20,7 @@ bl_info = {
 	"name": "Export to Need for Speed Most Wanted (2012) models format (.dat)",
 	"description": "Save objects as Need for Speed Most Wanted files",
 	"author": "DGIorio",
-	"version": (3, 2),
+	"version": (3, 3),
 	"blender": (3, 1, 0),
 	"location": "File > Export > Need for Speed Most Wanted (2012) (.dat)",
 	"warning": "",
@@ -131,7 +131,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		try:
 			collections_types = {collection["resource_type"] : collection for collection in main_collection.children}
 		except:
-			print("WARNING: some collection is missing parameter %s. Define one of the followings: 'GraphicsSpec', 'WheelGraphicsSpec', 'PolygonSoupList', 'Character', 'Effects', 'CharacterSpec', 'ZoneList'." % '"resource_type"')
+			print("WARNING: some collection is missing parameter %s. Define one of the followings: 'GraphicsSpec', 'WheelGraphicsSpec', 'PolygonSoupList', 'Skeleton', 'Character', 'Effects', 'CharacterSpec', 'ZoneList'." % '"resource_type"')
 			collections_types = {}
 			for collection in main_collection.children:
 				try:
@@ -190,6 +190,10 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				print("ERROR: main_collection's name is in the wrong format. Use something like VEH_122672_HI or VEH_122672_LO.")
 				return {"CANCELLED"}
 			mGraphicsSpecId = int_to_id(vehicle_number)
+			
+			mSkeleton = "VEH_" + str(vehicle_number) + "_skeleton"
+			mSkeletonId = calculate_resourceid(mSkeleton.lower())
+			
 			graphicsspec_collection = collections_types["GraphicsSpec"]
 			
 			collections = [graphicsspec_collection,]
@@ -221,6 +225,10 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			elif "Effect" in collections_types:
 				effects_collection = collections_types["Effect"]
 				collections.append(effects_collection)
+			
+			if "Skeleton" in collections_types:
+				skeleton_collection = collections_types["Skeleton"]
+				collections.append(skeleton_collection)
 		
 		elif resource_type == "CharacterSpec":
 			#main_directory_path = os.path.join(export_path, main_collection.name)
@@ -308,6 +316,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		material_dir = os.path.join(directory_path, "Material")
 		samplerstate_dir = os.path.join(directory_path, "SamplerState")
 		raster_dir = os.path.join(directory_path, "Texture")
+		skeleton_dir = os.path.join(directory_path, "Skeleton")
 		trafficattribs_dir = os.path.join(export_path, "TRAFFICATTRIBS")
 		
 		export_effects = True
@@ -319,6 +328,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		instances_effects = []
 		instance_collision = []
 		PolygonSoups = []
+		Skeleton = []
 		zonelist = []
 		models = []
 		renderables = []
@@ -776,16 +786,71 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								#continue
 								effect_copy = 0
 						
+						sensor_index = -1
 						try:
-							EffectData = child["EffectData"]
+							EffectData = child["sensor_hash"]
+							EffectData = id_to_int(EffectData)
 						except:
-							EffectData = None
+							try:
+								EffectData = child["EffectData"]
+								EffectData += 2**32 #converting to uint32
+							except:
+								EffectData = None
+								try:
+									sensor_index = int(child["sensor_index"])
+								except:
+									sensor_index = -1
 						
-						effect_copy_instance.append([effect_copy, [effectLocation, effectRotation], EffectData])
+						effect_copy_instance.append([effect_copy, [effectLocation, effectRotation], EffectData, sensor_index])
 						
 					
 					effect_instance = [EffectId, effect_index, effect_copy_instance[:]]
 					instances_effects.append(effect_instance)
+					
+					continue
+				
+				elif resource_type_child == "Skeleton":
+					mTransform = Matrix(np.linalg.inv(m) @ object.matrix_world)
+					mSensorPosition = mTransform.translation
+					object.rotation_mode = 'QUATERNION'
+					mSensorRotation = [0.0, 0.0, 0.0, 1.0]
+					
+					#mSensorRotation = mTransform.to_quaternion()
+					mSensorRotation[3] = mTransform.to_quaternion()[0]
+					mSensorRotation[0] = mTransform.to_quaternion()[1]
+					mSensorRotation[1] = mTransform.to_quaternion()[2]
+					mSensorRotation[2] = mTransform.to_quaternion()[3]
+					
+					try:
+						sensor_index = int(object.name.split("_")[1].split(".")[0])
+					except:
+						try:
+							sensor_index = int(object["sensor_index"])
+						except:
+							sensor_index = len(Skeleton)
+					
+					try:
+						parent_sensor = object["parent_sensor"]
+					except:
+						parent_sensor = 0
+					
+					try:
+						relative_sensor = object["correlated_sensor"]
+					except:
+						relative_sensor = -1
+					
+					try:
+						child_sensor = object["child_sensor"]
+					except:
+						child_sensor = -1
+					
+					try:
+						sensor_hash = object["sensor_hash"]
+					except:
+						sensor_hash = "9A_A9_39_49"
+					
+					sensor = [sensor_index, mSensorPosition, mSensorRotation, parent_sensor, relative_sensor, child_sensor, sensor_hash]
+					Skeleton.append(sensor)
 					
 					continue
 				
@@ -1122,16 +1187,19 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								
 								raster = node.image
 								if raster == None:
-									print("WARNING: No image on texture node %s of the material %s. Ignoring it." % (node.label, mMaterialId))
+									print("WARNING: no image on texture node %s of the material %s. Ignoring it." % (node.label, mMaterialId))
 									continue
 								
 								mRasterId = raster.name.split(".")[0]
 								if is_valid_id(mRasterId) == False:
 									return {"CANCELLED"}
 								
-								# Not used texture by shader
+								# Only keeping textures used by shader
 								if texture_sampler_code != 0xFF:
-									textures_info.append([mRasterId, texture_sampler_code, raster_type])
+									if texture_sampler_code in (rows[1] for rows in textures_info):
+										print("WARNING: two or more texture nodes of the material %s have the same raster type (%s). Assuming the first one is the correct one." % (mMaterialId, raster_type))
+									else:
+										textures_info.append([mRasterId, texture_sampler_code, raster_type])
 								
 								try:
 									is_raster_shared_asset = raster.is_shared_asset
@@ -1306,7 +1374,10 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 										elif raster_type == 'SpecularTextureSampler':
 											mRasterId = "30_A7_06_00"
 										elif raster_type == 'CrumpleTextureSampler':
-											mRasterId = "49_02_06_00"
+											mRasterId = "E0_74_8F_47"
+											raster_properties = [0x20, 2, 0]
+											is_raster_shared_asset = False
+											raster_path = "create_texture"
 										elif raster_type == 'EffectsTextureSampler':
 											#mRasterId = "1C_8D_0D_00"
 											mRasterId = "30_A7_06_00"
@@ -1684,7 +1755,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						return {"CANCELLED"}
 					
 					if muDistrictId == 0:
-						print("WARNING: object %s using an invalid %s. Assuming some value (164408)." % (muZoneId, '"muDistrictId"'))
+						print("WARNING: object %s using an invalid %s. Assuming some value (0)." % (muZoneId, '"muDistrictId"'))
 					
 					zonelist.append([muZoneId, [mauNeighbourId, mauNeighbourFlags, muDistrictId, muArenaId, unknown_0x40], zonepoints[:]])
 		
@@ -1737,6 +1808,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			
 			instances_effects.sort(key=lambda x:x[1])
 		
+		if len(Skeleton) > 0:
+			Skeleton.sort(key=lambda x:x[0])
+		
 		## Writing data
 		print("\tWriting data...")
 		writing_time = time.time()
@@ -1766,7 +1840,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				instance_collision = [mPolygonSoupListId, []]
 			
 			if os.path.isfile(instancelist_path):
-				print("WARNING: file %s already exists in track unit %s. Replacing it with new file if there are entries." %(mInstanceListId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Replacing it with new file if there are entries." % (mInstanceListId, track_unit_name))
 				if len(instances) > 0:
 					write_instancelist(instancelist_path, instances)
 			else:
@@ -1774,7 +1848,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				mResourceIds.append([mInstanceListId, "InstanceList", id_to_int(mInstanceListId)])
 			
 			if os.path.isfile(polygonsouplist_path):
-				print("WARNING: file %s already exists in track unit %s. Replacing it with new file if there are entries." %(mPolygonSoupListId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Replacing it with new file if there are entries." % (mPolygonSoupListId, track_unit_name))
 				if len(instance_collision[1]) > 0:
 					write_polygonsouplist(polygonsouplist_path, instance_collision[1])
 			else:
@@ -1782,43 +1856,43 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				mResourceIds.append([mPolygonSoupListId, "PolygonSoupList", id_to_int(mPolygonSoupListId)])
 			
 			if os.path.isfile(compoundinstancelist_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mCompoundInstanceListId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mCompoundInstanceListId, track_unit_name))
 			else:
 				write_compoundinstancelist(compoundinstancelist_path)
 				mResourceIds.append([mCompoundInstanceListId, "CompoundInstanceList", id_to_int(mCompoundInstanceListId)])
 			
 			if os.path.isfile(dynamicinstancelist_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mDynamicInstanceListId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mDynamicInstanceListId, track_unit_name))
 			else:
 				write_dynamicinstancelist(dynamicinstancelist_path)
 				mResourceIds.append([mDynamicInstanceListId, "DynamicInstanceList", id_to_int(mDynamicInstanceListId)])
 			
 			if os.path.isfile(groundcovercollection_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mGroundcoverCollectionId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mGroundcoverCollectionId, track_unit_name))
 			else:
 				write_groundcovercollection(groundcovercollection_path)
 				mResourceIds.append([mGroundcoverCollectionId, "GroundcoverCollection", id_to_int(mGroundcoverCollectionId)])
 			
 			if os.path.isfile(lightinstancelist_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mLightInstanceListId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mLightInstanceListId, track_unit_name))
 			else:
 				write_lightinstancelist(lightinstancelist_path)
 				mResourceIds.append([mLightInstanceListId, "LightInstanceList", id_to_int(mLightInstanceListId)])
 			
 			if os.path.isfile(propinstancelist_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mPropInstanceListId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mPropInstanceListId, track_unit_name))
 			else:
 				write_propinstancelist(propinstancelist_path)
 				mResourceIds.append([mPropInstanceListId, "PropInstanceList", id_to_int(mPropInstanceListId)])
 			
 			if os.path.isfile(navigationmesh_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mNavigationMeshId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mNavigationMeshId, track_unit_name))
 			else:
 				write_navigationmesh(navigationmesh_path)
 				mResourceIds.append([mNavigationMeshId, "NavigationMesh", id_to_int(mNavigationMeshId)])
 			
 			if os.path.isfile(zoneheader_path):
-				print("WARNING: file %s already exists in track unit %s. Skipping it." %(mZoneHeaderId, track_unit_name))
+				print("WARNING: file %s already exists in track unit %s. Skipping it." % (mZoneHeaderId, track_unit_name))
 			else:
 				write_zoneheader(zoneheader_path, mInstanceListId, mDynamicInstanceListId, mLightInstanceListId, mCompoundInstanceListId, mPropInstanceListId, mGroundcoverCollectionId)
 				mResourceIds.append([mZoneHeaderId, "ZoneHeader", id_to_int(mZoneHeaderId)])
@@ -1845,7 +1919,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						graphicsspec_path = os.path.join(graphicsspec_dir, file)
 						break
 			
-			status, mPolygonSoupListId_previous = edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, instance_collision)
+			status, mSkeletonId_previous, mPolygonSoupListId_previous = edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, instance_collision, len(Skeleton) > 0, mSkeletonId)
 			
 			if len(instances_wheel) > 0:
 				genesysobject_path = os.path.join(genesysobject_dir, mGraphicsSpecId + "_2.dat")
@@ -1893,8 +1967,25 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				edit_genesysobject1(genesysobject_dir, genesysobject_path, instances_character)
 			
 			if len(instances_effects) > 0:
+				for effect_instance in instances_effects:
+					for effect_copy_instance in effect_instance[2]:
+						if effect_copy_instance[2] == None and effect_copy_instance[3] != -1:
+							for sensor in Skeleton:
+								if sensor[0] == effect_copy_instance[3]:
+									effect_copy_instance[2] = id_to_int(sensor[6])
+									break
+				
 				edit_graphicsspec_effects(graphicsspec_path, instances_effects)
 			
+			if len(Skeleton) > 0:
+				# Deleting default file (deleting before writing the exported one, in case it is the same ID)
+				skeleton_default_path = os.path.join(skeleton_dir, mSkeletonId_previous + ".dat")
+				if os.path.isfile(skeleton_default_path):
+					os.remove(skeleton_default_path)
+				
+				skeleton_path = os.path.join(skeleton_dir, mSkeletonId + ".dat")
+				write_skeleton(skeleton_path, Skeleton)
+				mResourceIds.append([mSkeletonId, "Skeleton", id_to_int(mSkeletonId)])
 			
 			#status = write_graphicsspec(graphicsspec_path, instances, muPartsCount, muShatteredGlassPartsCount)
 			#if status == 1:
@@ -1920,7 +2011,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				characterspec_path = os.path.join(characterspec_dir, mCharacterSpecId + ".dat")
 				already_is_file = False
 				if os.path.isfile(characterspec_path):
-					print("WARNING: file %s already exists in %s. Replacing it with new file." %(mCharacterSpecId, main_collection.name))
+					print("WARNING: file %s already exists in %s. Replacing it with new file." % (mCharacterSpecId, main_collection.name))
 					already_is_file = True
 				write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, instances)
 				if already_is_file == False:
@@ -1940,7 +2031,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			model_path = os.path.join(model_dir, mModelId + ".dat")
 			already_is_file = False
 			if os.path.isfile(model_path):
-				print("WARNING: file %s already exists in %s. Replacing it with new file." %(mModelId, main_collection.name))
+				print("WARNING: file %s already exists in %s. Replacing it with new file." % (mModelId, main_collection.name))
 				already_is_file = True
 			write_model(model_path, model, resource_type)
 			if already_is_file == False:
@@ -1956,7 +2047,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			renderable_path = os.path.join(renderable_dir, mRenderableId + ".dat")
 			already_is_file = False
 			if os.path.isfile(renderable_path):
-				print("WARNING: file %s already exists in %s. Replacing it with new file." %(mRenderableId, main_collection.name))
+				print("WARNING: file %s already exists in %s. Replacing it with new file." % (mRenderableId, main_collection.name))
 				already_is_file = True
 			write_renderable(renderable_path, renderable, resource_type, shared_dir)
 			if already_is_file == False:
@@ -1971,26 +2062,26 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				
 				if os.path.isfile(shared_material_path) and (resource_type == "GraphicsSpec" or resource_type == "CharacterSpec"):
 					# Vehicles and character does not have truely shared materials, but can use the same material
-					print("WARNING: Moving shared material %s. Be sure its textures are shared or they exist in the output file." %mMaterialId)
+					print("WARNING: Moving shared material %s. Be sure its textures are shared or they exist in the output file." % mMaterialId)
 					material_path = os.path.join(material_dir, mMaterialId + ".dat")
 					if os.path.isfile(material_path):
-						print("WARNING: Material %s already exists in vehicle %s. Skipping it." %(mMaterialId, main_collection.name))
+						print("WARNING: Material %s already exists in vehicle %s. Skipping it." % (mMaterialId, main_collection.name))
 						continue
 					
 					status = move_shared_resource(material_path, mMaterialId, shared_material_dir)
 					if status == 0:
 						mResourceIds.append([mMaterialId, "Material", id_to_int(mMaterialId)])
 					else:
-						print("WARNING: Material %s does not exist on library. Add it manually to the Material folder." %mMaterialId)
+						print("WARNING: Material %s does not exist on library. Add it manually to the Material folder." % mMaterialId)
 						mResourceIds.append([mMaterialId, "Material", id_to_int(mMaterialId)])
 				elif not os.path.isfile(shared_material_path) and (resource_type == "GraphicsSpec" or resource_type == "CharacterSpec"):
-					print("ERROR: Not possible to move shared material %s. Be sure it is shared or it exists in the game library." %mMaterialId)
+					print("ERROR: Not possible to move shared material %s. Be sure it is shared or it exists in the game library." % mMaterialId)
 				continue
 			
 			material_path = os.path.join(material_dir, mMaterialId + ".dat")
 			already_is_file = False
 			if os.path.isfile(material_path):
-				print("WARNING: file %s already exists in %s. Replacing it with new file." %(mMaterialId, main_collection.name))
+				print("WARNING: file %s already exists in %s. Replacing it with new file." % (mMaterialId, main_collection.name))
 				already_is_file = True
 			write_material(material_path, material)
 			if already_is_file == False:
@@ -2006,7 +2097,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			raster_path = os.path.join(raster_dir, mRasterId + ".dat")
 			already_is_file = False
 			if os.path.isfile(raster_path):
-				print("WARNING: file %s already exists in %s. Replacing it with new file." %(mRasterId, main_collection.name))
+				print("WARNING: file %s already exists in %s. Replacing it with new file." % (mRasterId, main_collection.name))
 				already_is_file = True
 			write_raster(raster_path, raster)
 			if already_is_file == False:
@@ -2016,14 +2107,14 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 		for mSamplerStateId in samplerstates:
 			samplerstate_path = os.path.join(samplerstate_dir, mSamplerStateId + ".dat")
 			if os.path.isfile(samplerstate_path):
-				print("WARNING: SamplerState %s already exists in %s. Skipping it." %(mSamplerStateId, main_collection.name))
+				print("WARNING: SamplerState %s already exists in %s. Skipping it." % (mSamplerStateId, main_collection.name))
 				continue
 			
 			status = move_shared_resource(samplerstate_path, mSamplerStateId, shared_samplerstate_dir)
 			if status == 0:
 				mResourceIds.append([mSamplerStateId, "SamplerState", id_to_int(mSamplerStateId)])
 			else:
-				print("ERROR: SamplerState %s does not exist on library. Add it manually to the SamplerState folder. Continuing to export." %mSamplerStateId)
+				print("ERROR: SamplerState %s does not exist on library. Add it manually to the SamplerState folder. Continuing to export." % mSamplerStateId)
 				mResourceIds.append([mSamplerStateId, "SamplerState", id_to_int(mSamplerStateId)])
 		
 		mResourceIds_ = [mResourceId[0] for mResourceId in mResourceIds]
@@ -2056,6 +2147,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			if len(instance_collision) > 0:
 				# Removing default collision file
 				remove_resource_from_resources_table(resources_table_path, mPolygonSoupListId_previous)
+			if len(Skeleton) > 0:
+				# Removing default skeleton file
+				remove_resource_from_resources_table(resources_table_path, mSkeletonId_previous)
 			merge_resources_table(ids_table_path, resources_table_path)
 			os.remove(ids_table_path)
 		elif os.path.isfile(resources_table_path) and resource_type == "InstanceList":
@@ -2589,11 +2683,16 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 		
 		meshes_info[mesh_index] = [mesh_index, mMaterialId]
 		
-		triangle_strips = convert_triangle_to_strip(indices_buffer[mesh_index])
+		if len(vertices_buffer[mesh_index]) >= 0xFFFF:
+			terminator = 0xFFFFFFFF
+		else:
+			terminator = 0xFFFF
+		
+		triangle_strips = convert_triangle_to_strip(indices_buffer[mesh_index], terminator)
 		cte_min = min(triangle_strips)
-		cte_max = max(index for index in triangle_strips if index != 0xFFFF)
+		cte_max = max(index for index in triangle_strips if index != terminator)
 		for j in range(0, len(triangle_strips)):
-			if triangle_strips[j] == 0xFFFF:
+			if triangle_strips[j] == terminator:
 				continue
 			triangle_strips[j] = triangle_strips[j] - cte_min
 		
@@ -2601,7 +2700,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 		#cte=0
 		#v=0
 		#while (j < len(triangle_strips)):
-		#	if triangle_strips[j] == 0xFFFF:
+		#	if triangle_strips[j] == terminator:
 		#		triangle_strips[j] = triangle_strips[j-1]
 		#		index_insert = triangle_strips[j+1]
 		#		triangle_strips.insert(j+1, index_insert)
@@ -2685,14 +2784,6 @@ def read_polygonsoup_object(object, translation, scale, resource_type, track_uni
 				print("WARNING: face without material found on mesh %s." % mesh.name)
 				has_material = False
 			
-			if collision_tag1 == None:
-				mu16CollisionTag_part1 = 0
-			else:
-				mu16CollisionTag_part1 = face[collision_tag1]
-			
-			if resource_type == "InstanceList":
-				mu16CollisionTag_part1 = mu16CollisionTag_part1 + track_unit_number*0x10
-			
 			try:
 				mu16CollisionTag_part0 = mesh.materials[material_index].name.split(".")[0]
 			except:
@@ -2701,6 +2792,16 @@ def read_polygonsoup_object(object, translation, scale, resource_type, track_uni
 					mu16CollisionTag_part0 = "Cobble"
 				else:
 					mu16CollisionTag_part0 = "None"
+			
+			if collision_tag1 == None:
+				#mu16CollisionTag_part1 = 0
+				mu16CollisionTag_part1 = get_collision_tag1(mu16CollisionTag_part0)
+				
+			else:
+				mu16CollisionTag_part1 = face[collision_tag1]
+			
+			if resource_type == "InstanceList":
+				mu16CollisionTag_part1 = mu16CollisionTag_part1 + track_unit_number*0x10
 			
 			mu16CollisionTag_part0 = get_collision_tag(mu16CollisionTag_part0)
 			if mu16CollisionTag_part0 == -1 and has_material:
@@ -3394,6 +3495,10 @@ def write_model(model_path, model, resource_type):	#ok
 			muNumLodDistances = 5
 		mu8VersionNumber = 5
 		
+		if mu8NumStates < mu8NumRenderables:
+			mu8NumStates = mu8NumRenderables + 2
+			# Not updating the muNumLodDistances, it can be lower
+		
 		mpu8StateRenderableIndices = 0x1C
 		mpfLodDistances = mpu8StateRenderableIndices + 0x1*mu8NumStates
 		mpfLodDistances += calculate_padding(mpfLodDistances, 0x4)
@@ -3482,10 +3587,10 @@ def write_model(model_path, model, resource_type):	#ok
 			tint_data_size += offset_end - mpTintData
 			padding = calculate_padding(tint_data_size, 0x10)
 		
-		renderable_indices = [-1]*mu8NumStates
+		#renderable_indices = [-1]*mu8NumStates
 		lod_distances = []
 		if mu8NumRenderables == 1:
-			renderable_indices[0] = 0
+			#renderable_indices[0] = 0
 			if lod_distances_game == []:
 				lod_distances.append(maxLodDistance)
 			else:
@@ -3493,9 +3598,14 @@ def write_model(model_path, model, resource_type):	#ok
 		else:
 			for i in range(0, muNumLodDistances):
 				lod_distances.append(minLodDistance*(i+1)*(i+1))
-			for i in range(0, mu8NumRenderables-1):
-				renderable_indices[i] = i
-			renderable_indices[-1] = mu8NumRenderables - 1
+			#for i in range(0, mu8NumRenderables-1):
+			#	renderable_indices[i] = i
+			#renderable_indices[-1] = mu8NumRenderables - 1
+		
+		renderable_indices = [0]*mu8NumStates
+		for i in range(0, mu8NumRenderables):
+			renderable_indices[-1-i] = (mu8NumRenderables-1) - i
+		
 		
 		mppRenderables_ = [0]*mu8NumRenderables
 		
@@ -3692,6 +3802,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 		mMaterialIds = [0]*num_meshes
 		pointers_1 = [0]*num_meshes
 		pointers_2 = [0]*num_meshes
+		constant_0x44 = [0]*num_meshes
 		indices_buffer_offset = [0]*num_meshes
 		indices_buffer_counts = [0]*num_meshes
 		indices_buffer_sizes = [0]*num_meshes
@@ -3718,7 +3829,12 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 				indices_buffer_offset[mesh_index] += calculate_padding(indices_buffer_offset[mesh_index], 0x10)
 			
 			indices_buffer_counts[mesh_index] = len(indices_buffer[mesh_index])
-			indices_buffer_sizes[mesh_index] = indices_buffer_counts[mesh_index] * 0x2
+			if len(vertices_buffer[mesh_index]) >= 0xFFFF:
+				constant_0x44[mesh_index] = 4
+			else:
+				constant_0x44[mesh_index] = 2
+			
+			indices_buffer_sizes[mesh_index] = indices_buffer_counts[mesh_index] * constant_0x44[mesh_index]
 			
 			vertices_buffer_offset[mesh_index] = indices_buffer_offset[mesh_index] + indices_buffer_sizes[mesh_index]
 			vertices_buffer_offset[mesh_index] += calculate_padding(vertices_buffer_offset[mesh_index], 0x10)
@@ -3786,7 +3902,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 			f.write(struct.pack('<i', indices_buffer_offset[i]))
 			f.write(struct.pack('<i', indices_buffer_sizes[i]))
 			
-			f.write(struct.pack('<i', constant_0x44))
+			f.write(struct.pack('<i', constant_0x44[i]))
 			f.write(struct.pack('<i', constant_0x48))
 			f.write(struct.pack('<i', constant_0x4C))
 			f.write(struct.pack('<i', constant_0x50))
@@ -3809,7 +3925,10 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 		for mesh_index in range(0, num_meshes):
 			mesh_index_error = -1
 			g.seek(indices_buffer_offset[mesh_index], 0)
-			g.write(struct.pack('<%sH' % indices_buffer_counts[mesh_index], *indices_buffer[mesh_index]))
+			if constant_0x44[mesh_index] == 0x2:
+				g.write(struct.pack('<%sH' % indices_buffer_counts[mesh_index], *indices_buffer[mesh_index]))
+			elif constant_0x44[mesh_index] == 0x4:
+				g.write(struct.pack('<%sI' % indices_buffer_counts[mesh_index], *indices_buffer[mesh_index]))
 			
 			padding = calculate_padding(indices_buffer_sizes[mesh_index], 0x10)
 			if padding == 0:
@@ -3902,10 +4021,54 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 						data_type = data_type[0].replace("norm", "")
 						if semantic_type == "TEXCOORD5" or semantic_type == "TEXCOORD6":	#NORMAL_PACKED and NORMAL_PACKED for wheels
 							x, y, z, w = calculate_packed_normals(values)
+							
 							x = round(x)
 							y = round(y)
 							z = round(z)
 							w = round(w)
+							
+							# normal = Vector(values[:])
+							# vec = Vector((0.0, 0.0, 1.0))
+							# normal = normal.normalized()
+							# vec = vec.normalized()
+							
+							# if normal[2] < 0:
+								# v = Vector((0.0, 0.0, -1.0))
+							# else:
+								# v = Vector((0.0, 0.0, 1.0))
+							
+
+							# # Unfortunately, we have to check for when u == -v, as u + v
+							# # in this case will be (0, 0, 0), which cannot be normalized.
+							# if normal == -vec:
+								# #180 degree rotation around any orthogonal vector
+								# q = Quaternion()
+								# q.x, q.y, q.z = normal.orthogonal().normalized()
+								# q.w = 0.0
+							# else:
+								# #half = (normal + vec).normalized()
+								# #q = Quaternion()
+								# #q.x, q.y, q.z = normal.cross(half)
+								# ##q.x, q.y, q.z = normal.cross(half).normalized()
+								# #q.w = normal.dot(half)
+								
+								# q = normal.rotation_difference(vec)
+							
+							# x = round(q.x*0x7FFF)
+							# y = round(q.y*0x7FFF)
+							# z = round(q.z*0x7FFF)
+							# w = round(q.w*0x7FFF)
+							
+							# # x = round(q.y*0x7FFF)
+							# # y = round(q.z*0x7FFF)
+							# # z = round(q.w*0x7FFF)
+							# # w = round(q.x*0x7FFF)
+							
+							# # x = round(q.w*0x7FFF)
+							# # y = round(q.z*0x7FFF)
+							# # z = round(q.y*0x7FFF)
+							# # w = round(q.x*0x7FFF)
+							
 						else:
 							scale = 10.0
 							w = 32767.0
@@ -3919,7 +4082,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 							g.write(struct.pack("<%s" % data_type[0], *values))
 						except:
 							if mesh_index_error != mesh_index:
-								print("WARNING: unknown vertex type found on %s mesh index %i. It is a type %s with data type %s with length %s. Writing a null data." %(mRenderableId, mesh_index, semantic_type, data_type[0], str(hex(data_type[1]))))
+								print("WARNING: unknown vertex type found on %s mesh index %i. It is a type %s with data type %s with length %s. Writing a null data." % (mRenderableId, mesh_index, semantic_type, data_type[0], str(hex(data_type[1]))))
 								mesh_index_error = mesh_index
 							g.write(struct.pack("<%s" % data_type[0], *[0]*int(data_type[0][0])))
 		
@@ -4084,6 +4247,8 @@ def write_raster(raster_path, raster): #ok
 			create_whitesampler(raster_source_path)
 		elif raster[0] == "06_88_13_FF":
 			create_normalsampler(raster_source_path)
+		elif raster[0] == "E0_74_8F_47":
+			create_crumplesampler(raster_source_path)
 		else:
 			create_blacksampler(raster_source_path)
 	
@@ -4157,6 +4322,48 @@ def write_raster(raster_path, raster): #ok
 		g.write(data)
 		g.write(bytearray([0])*padding_texture)
 	
+	return 0
+
+
+def write_skeleton(skeleton_path, Skeleton):
+	os.makedirs(os.path.dirname(skeleton_path), exist_ok = True)
+	
+	with open(skeleton_path, "wb") as f:
+		mppPointer = 0x20
+		muCount = len(Skeleton)
+		mppPointer2 = mppPointer + 0x30*muCount
+		mppPointer3 = mppPointer2
+		
+		f.write(struct.pack('<H', 0x2))
+		f.write(struct.pack('<H', muCount))
+		f.write(struct.pack('<I', mppPointer))
+		f.write(struct.pack('<I', mppPointer2))
+		f.write(struct.pack('<I', mppPointer3))
+		
+		f.seek(mppPointer, 0)
+		for i in range(0, muCount):
+			sensor_index, location, rotation, parent_sensor, relative_sensor, child_sensor, hash = Skeleton[i]
+			
+			f.seek(mppPointer + 0x30*i, 0)
+			f.write(struct.pack('<3f', *location))
+			f.write(struct.pack('<I', 0))
+			
+			# rotation
+			f.write(struct.pack('<4f', *rotation))
+			
+			f.write(struct.pack('<i', parent_sensor))
+			f.write(struct.pack('<i', relative_sensor))
+			f.write(struct.pack('<i', child_sensor))
+			f.write(struct.pack('<i', sensor_index))
+		
+		f.seek(mppPointer3, 0)
+		for i in range(0, muCount):
+			hash = Skeleton[i][-1]
+			f.write(id_to_bytes(hash))
+		
+		padding = calculate_padding(mppPointer3 + muCount*0x4, 0x10)
+		f.write(bytearray([0])*padding)
+		
 	return 0
 
 
@@ -4511,7 +4718,7 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 				f.write(b'NAV')
 			
 			f.seek(muHeaderOffset, 0)
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.2 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.3 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(muResourceEntriesOffset, 0)
 		
@@ -4524,24 +4731,28 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 		for mResourceId, muResourceType, _ in mResourceIds:
 			count = 0
 			unkByte_0x4 = 0
-			unkByte = 0
+			isIdInteger = 0
 			muStreamIndex = 0
 			if muResourceType  == "PolygonSoupList":
 				unkByte_0x4 = 0x60
-				unkByte = 1
+				isIdInteger = 1
 				if resource_type == "InstanceList":
 					unkByte_0x4 = 0x0
-					unkByte = 0
+					isIdInteger = 0
 					muStreamIndex = 1
 			elif muResourceType  == "NavigationMesh":
 				muStreamIndex = 2
+			elif muResourceType  == "Skeleton":
+				unkByte_0x4 = 0
+				isIdInteger = 1
+				muStreamIndex = 0
 			elif muResourceType == "Texture" or muResourceType == "Material" or muResourceType == "CharacterSpec":
-				unkByte = 1
+				isIdInteger = 1
 			# f.write(id_to_bytes(mResourceId))
 			# f.write(struct.pack("<B", unkByte_0x4))
 			# f.write(struct.pack("<B", 0))
 			# f.write(struct.pack("<B", count))
-			# f.write(struct.pack("<B", unkByte))
+			# f.write(struct.pack("<B", isIdInteger))
 			# f.write(struct.pack("<I", 0))
 			# f.write(struct.pack("<I", 0))
 			# f.write(struct.pack("<I", 0))
@@ -4569,7 +4780,7 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 			resource_entry += struct.pack("<B", unkByte_0x4)
 			resource_entry += struct.pack("<B", 0)
 			resource_entry += struct.pack("<B", count)
-			resource_entry += struct.pack("<B", unkByte)
+			resource_entry += struct.pack("<B", isIdInteger)
 			resource_entry += struct.pack("<I", 0)
 			resource_entry += struct.pack("<I", 0)
 			resource_entry += struct.pack("<I", 0)
@@ -4606,9 +4817,9 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 	return 0
 
 
-def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, instance_collision):
+def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, instance_collision, has_skeleton, mSkeletonId):
 	if os.path.isfile(graphicsspec_path) == False:
-		return (0, "")
+		return (0, "", "")
 	
 	with open(graphicsspec_path, "rb") as f:
 		file_size = os.path.getsize(graphicsspec_path)
@@ -4658,8 +4869,11 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 		muOffset = struct.unpack("<I", f.read(0x4))[0]
 		if muOffset == 0x8:
 			f.seek(-0xC, 1)
+			mSkeletonId_ = ""
 		else:
-			f.seek(0x4, 1)
+			f.seek(-0xC, 1)
+			mSkeletonId_ = bytes_to_id(f.read(0x4))
+			f.seek(0xC, 1)
 		mpPolygonSoupListId_relative = f.tell() - mpResourceIds
 		mPolygonSoupListId = bytes_to_id(f.read(0x4))
 	
@@ -4778,8 +4992,13 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 			f.seek(mpResourceIds, 0)
 			f.seek(mpPolygonSoupListId_relative, 1)
 			f.write(id_to_bytes(instance_collision[0]))
+		
+		if has_skeleton == True:
+			if mSkeletonId_ != "":
+				f.seek(mpResourceIds, 0)
+				f.write(id_to_bytes(mSkeletonId))
 	
-	return (0, mPolygonSoupListId)
+	return (0, mSkeletonId_, mPolygonSoupListId)
 
 
 def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
@@ -4838,7 +5057,7 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 		effect_copies_previous = len(effect_copies)
 		mpEffects.append(mpEffect)
 		
-		has_unknow_value = any(value[-1] is not None for value in effect_copies)
+		has_unknow_value = any(value[2] is not None for value in effect_copies)
 		if has_unknow_value == True:
 			num_effects_data += len(effect_copies)
 	
@@ -4890,7 +5109,7 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 			effect_count = len(effect_copies)
 			unknown_pointer = 0
 			
-			has_unknow_value = any(value[-1] is not None for value in effect_copies)
+			has_unknow_value = any(value[2] is not None for value in effect_copies)
 			if has_unknow_value == True:
 				unknown_pointer = mpEffects[-1] + 0x20*effect_copies_previous + k*0x4
 				k += effect_count
@@ -4918,7 +5137,7 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 			
 				if has_unknow_value == True:
 					f.seek(unknown_pointer + j*0x4, 0)
-					f.write(struct.pack('<i', effect_copies[j][-1]))
+					f.write(struct.pack('<I', effect_copies[j][2]))
 		
 		f.seek(first_wheel_pointer_fixed, 0)
 		f.write(data)
@@ -5101,7 +5320,7 @@ def merge_resources_table(ids_table_path, resources_table_path):
 		muResourceEntriesOffset += 0x60
 		f.write(header_data)
 		if text != b'Resources generated by NFSMW 2012 Exporter':
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.2 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.3 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(0x10, 0)
 			f.write(struct.pack("<I", muResourceEntriesOffset))
@@ -5225,6 +5444,51 @@ def create_normalsampler(raster_source_path):
 	return 0
 
 
+def create_crumplesampler(raster_source_path):
+	os.makedirs(os.path.dirname(raster_source_path), exist_ok = True)
+	
+	with open(raster_source_path, "wb") as f:
+		f.write(b'\x44\x44\x53\x20\x7C\x00\x00\x00\x07\x10\x0A\x00\x08\x00\x00\x00')
+		f.write(b'\x08\x00\x00\x00\x40\x00\x00\x00\x01\x00\x00\x00\x04\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00')
+		f.write(b'\x04\x00\x00\x00\x44\x58\x54\x35\x00\x00\x00\x00\x00\x00\x00\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x10\x40\x00')
+		f.write(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+		for i in range(0, 7):
+			f.write(b'\xFF\xFF\x00\x00\x00\x00\x00\x00')
+			f.write(b'\x1F\x7C\x1F\x7C\x00\x00\x00\x00')
+	
+	return 0
+
+
+def convert_texture_to_dxt1(raster_path, make_backup):
+	if make_backup == True:
+		shutil.copy2(raster_path, raster_path + ".bak")
+	out_raster_path = os.path.splitext(raster_path)[0] + ".dds"
+	nvidia_path = nvidiaGet()
+
+	compress_type = "bc1" # DXT1
+
+	os.system('"%s -%s -silent "%s" "%s""' % (nvidia_path, compress_type, raster_path, out_raster_path))
+
+	return out_raster_path
+
+
+def convert_texture_to_dxt3(raster_path, make_backup):
+	if make_backup == True:
+		shutil.copy2(raster_path, raster_path + ".bak")
+	out_raster_path = os.path.splitext(raster_path)[0] + ".dds"
+	nvidia_path = nvidiaGet()
+
+	compress_type = "bc2" # DXT3
+
+	os.system('"%s -%s -silent "%s" "%s""' % (nvidia_path, compress_type, raster_path, out_raster_path))
+
+	return out_raster_path
+
+
 def convert_texture_to_dxt5(raster_path, make_backup):
 	if make_backup == True:
 		shutil.copy2(raster_path, raster_path + ".bak")
@@ -5276,7 +5540,7 @@ def apply_transfrom(ob, global_rotation, use_location=False, use_rotation=False,
 	ob.matrix_basis = basis[0] @ basis[1] @ basis[2]
 
 
-def convert_triangle_to_strip(TriangleList):
+def convert_triangle_to_strip(TriangleList, terminator):
 	TriangleStrip = []
 	cte = 0
 	for i, Triangle in enumerate(TriangleList):
@@ -5288,13 +5552,13 @@ def convert_triangle_to_strip(TriangleList):
 			a, b, c = Triangle
 			if (i+cte)%2==0:
 				if a != PreviousTriangle[0] or b != PreviousTriangle[2]:
-					TriangleStrip.extend([0xFFFF, a, b, c])
+					TriangleStrip.extend([terminator, a, b, c])
 					cte += 0
 				else:
 					TriangleStrip.append(c)
 			else:
 				if a != PreviousTriangle[2] or b != PreviousTriangle[1]:
-					TriangleStrip.extend([0xFFFF, a, b, c])
+					TriangleStrip.extend([terminator, a, b, c])
 					cte += -1
 				else:
 					TriangleStrip.append(c)
@@ -5448,6 +5712,7 @@ def calculate_tangents(indices_buffer, mesh_vertices_buffer, mShaderId):
 	
 	import warnings
 	with warnings.catch_warnings():
+		warnings.filterwarnings("ignore", message="invalid value encountered in divide")
 		warnings.filterwarnings("ignore", message="invalid value encountered in true_divide")
 		for index, vertex in mesh_vertices_buffer.items():
 			n = np.asarray(vertex[2])
@@ -6116,6 +6381,46 @@ def get_collision_tag(mu16CollisionTag_part0):
 			return -1
 
 
+def get_collision_tag1(mu16CollisionTag_part0):
+	mu16CollisionTag_part0 = mu16CollisionTag_part0.lower()
+	collisionTag1 = {'tarmac': 1,
+					 'tarmac_dry': 4,
+					 'tarmac_halfwet': 5,
+					 'tarmac_leaves': 4,
+					 'tarmac_leaves_dry': 4,
+					 'tarmac_leaves_halfwet': 5,
+					 'gutter': 3,
+					 'gutter_dry': 4,
+					 'gutter_halfwet': 5,
+					 'gutter_leaves': 4,
+					 'gutter_leaves_dry': 4,
+					 'gutter_leaves_halfwet': 5,
+					 'urbanoffroad': 0,
+					 'urbanoffroad_dry': 4,
+					 'urbanoffroad_wet': 3,
+					 'urbanoffroad_halfwet': 5,
+					 'urbanoffroad_leaves': 4,
+					 'urbanoffroad_leaves_dry': 5,
+					 'urbanoffroad_leaves_halfwet': 5,
+					 'cobble': 3,
+					 'concrete_driveable': 3,
+					 'dirt': 0,
+					 'grass': 0,
+					 'metal': 0,
+					 'sand': 0,
+					 'slow': 5,
+					 'standing_water': 6,
+					 'teflon': 2,
+					 'teflon_no_grip': 2,
+					 'wood': 2}
+	
+	
+	if mu16CollisionTag_part0 in collisionTag1:
+		return collisionTag1[mu16CollisionTag_part0]
+	
+	return 0
+
+
 def get_neighbour_flags_code(NeighbourFlag):
 	NeighbourFlags = {'E_RENDERFLAG_NONE': 0x0,
 				'E_NEIGHBOURFLAG_RENDER': 0x1,
@@ -6223,6 +6528,7 @@ def resourcetype_to_type_id(resource_type):
 					   'Renderable' : '05_00_00_00',
 					   'Model' : '51_00_00_00',
 					   'PolygonSoupList' : '60_00_00_00',
+					   'Skeleton' : 'B2_00_00_00',
 					   'CharacterSpec' : '09_02_00_00',
 					   'CompoundInstanceList' : '16_02_00_00',
 					   'DynamicInstanceList' : '04_02_00_00',
@@ -6577,21 +6883,37 @@ class ExportNFSMW(Operator, ExportHelper):
 
 
 def menu_func_export(self, context):
-	self.layout.operator(ExportNFSMW.bl_idname, text="Need for Speed Most Wanted (2012) (.dat)")
+	pcoll = preview_collections["main"]
+	my_icon = pcoll["my_icon"]
+	self.layout.operator(ExportNFSMW.bl_idname, text="Need for Speed Most Wanted (2012) (.dat)", icon_value=my_icon.icon_id)
 
 
 classes = (
 		ExportNFSMW,
 )
 
+preview_collections = {}
+
 
 def register():
+	import bpy.utils.previews
+	pcoll = bpy.utils.previews.new()
+	
+	my_icons_dir = os.path.join(os.path.dirname(__file__), "dgi_icons")
+	pcoll.load("my_icon", os.path.join(my_icons_dir, "nfsmw_icon.png"), 'IMAGE')
+
+	preview_collections["main"] = pcoll
+	
 	for cls in classes:
 		bpy.utils.register_class(cls)
 	bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
+	for pcoll in preview_collections.values():
+		bpy.utils.previews.remove(pcoll)
+	preview_collections.clear()
+	
 	for cls in classes:
 		bpy.utils.unregister_class(cls)
 	bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
