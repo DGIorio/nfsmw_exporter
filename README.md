@@ -7,7 +7,6 @@ The NFSMW12 exporter is a Blender add-on to enable exporting objects as a Need f
 - [Bundle Packer Unpacker](https://github.com/DGIorio/bundle_packer_unpacker)  
 - [Additional Blender panels](https://github.com/DGIorio/additional_blender_panels)  
 - [Game library](https://drive.google.com/file/d/10zKBiuUgS96G6tKT2AQGnIUovaH7Pg_c/view?usp=sharing)
-- [PS3 Game library](https://drive.google.com/file/d/1i27u9Gqc3lXKMYoA7BbieXC79-jLu4qg/view?usp=sharing)
 
 ### Recommended Blender add-ons
 - [Vertex Oven](https://github.com/ForestKatsch/VertexOven) for baking ao map on vertex color
