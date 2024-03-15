@@ -1,4 +1,9 @@
 # Need for Speed Most Wanted 2012 exporter
+[![Blender](https://img.shields.io/badge/Blender-v3.1_or_up_to_v3.6-blue?logo=blender&logoColor=white)](https://www.blender.org/download/ "Download Blender")
+[![GitHub release](https://img.shields.io/github/release/DGIorio/nfsmw_exporter?include_prereleases=&sort=semver&color=blue)](https://github.com/DGIorio/nfsmw_exporter/releases/)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/DGIorio)
+
 The NFSMW12 exporter is a Blender add-on to enable exporting objects as a Need for Speed Most Wanted 2012 (PC) file, currently supporting vehicles, tracks, collisions and characters.
 
 ## Requirements
