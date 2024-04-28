@@ -6,13 +6,10 @@
 
 ## TO DO
 """
-- Add shared materials to library
-- Verify textures with .001
-- Add verbose levels to hide warnings
+- support for more wheels (num_wheels on graphicsSpec)
 - export probs and other instance types from tracks
 - vehicle: modify the coronas file for adding or removing effects
 - find a better default color2
-- fix muDebugDataOffset (IDs table) on cars??
 """
 
 
@@ -20,7 +17,7 @@ bl_info = {
 	"name": "Export to Need for Speed Most Wanted (2012) models format (.dat)",
 	"description": "Save objects as Need for Speed Most Wanted files",
 	"author": "DGIorio",
-	"version": (3, 3),
+	"version": (3, 5),
 	"blender": (3, 1, 0),
 	"location": "File > Export > Need for Speed Most Wanted (2012) (.dat)",
 	"warning": "",
@@ -56,7 +53,8 @@ import traceback
 import numpy as np
 import shutil
 import zlib
-from bundle_packer_unpacker import pack_bundle_mw
+from collections import Counter
+from bundle_packer_unpacker import pack_bundle_mw, get_resourcetype_nibble_mw
 try:
 	from bundle_cleaner import clean_model_data
 except:
@@ -67,7 +65,7 @@ except:
 	print("WARNING: mw_custom_materials.py not found in Blender addons folder. Custom material data will not be available.")
 
 
-def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_layer, recalculate_vcolor2, force_rotation, transform_args, global_rotation,
+def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_layer, force_rotation, transform_args, global_rotation,
 		 force_shared_asset_as_false, debug_shared_not_found,
 		 debug_use_shader_material_parameters, debug_use_default_samplerstates, debug_redirect_vehicle, new_vehicle_name, m):
 	
@@ -84,7 +82,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 	shared_dir = os.path.join(NFSMWLibraryGet(), "NFSMW_Library_PC")
 	shared_model_dir = os.path.join(shared_dir, "Model")
 	shared_renderable_dir = os.path.join(shared_dir, "Renderable")
-	shared_vertex_descriptor_dir = os.path.join(shared_dir, "VertexDescriptor")
+	shared_vertex_descriptor_dir = os.path.join(os.path.join(shared_dir, "SHADERS"), "VertexDescriptor")
 	shared_vertex_descriptor_ported_x360_dir = os.path.join(shared_dir, "VertexDescriptor_port_X360")
 	shared_vertex_descriptor_ported_ps3_dir = os.path.join(shared_dir, "VertexDescriptor_port_PS3")
 	shared_material_dir = os.path.join(shared_dir, "Material")
@@ -95,6 +93,18 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 	shared_raster_dir = os.path.join(shared_dir, "Texture")
 	shared_trafficattribs_dir = os.path.join(shared_dir, "TRAFFICATTRIBS")
 	shared_characters_dir = os.path.join(shared_dir, "ALL_CHARS")
+	shared_pvs_dir = os.path.join(shared_dir, "PVS")
+	
+	zonelist_path = os.path.join(os.path.join(shared_pvs_dir, "ZoneList"), "49_42_9B_CE.dat")
+	globalresources_path = os.path.join(shared_dir, "IDs_GLOBALRESOURCES.BNDL")
+	districts_path = []
+	for file in os.listdir(shared_dir):
+		if "IDs_DISTRICT_" in file:
+			districts_path.append(os.path.join(shared_dir, file))
+	arenas_path = []
+	for file in os.listdir(shared_dir):
+		if "IDs_ARENA_" in file:
+			arenas_path.append(os.path.join(shared_dir, file))
 	
 	track_unit_number = None
 	
@@ -138,7 +148,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					collections_types[collection["resource_type"]] = collection
 				except:
 					collections_types["GraphicsSpec"] = collection
-				
+			
 			#return {"CANCELLED"}
 		
 		if resource_type == "InstanceList":
@@ -179,6 +189,73 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				polygonsouplist_collection = collections_types["Collision"]
 			else:
 				print("WARNING: collection %s is missing. An empty one will be created." % '"PolygonSoupList"')
+			
+			if "Skeleton" in collections_types:
+				skeleton_collection = collections_types["Skeleton"]
+				collections.append(skeleton_collection)
+			
+			muDistrictId = -1
+			muArenaId = -1
+			
+			models_disctrict = []
+			renderables_disctrict = []
+			materials_disctrict = []
+			textures_disctrict = []
+			
+			models_arena = []
+			renderables_arena = []
+			materials_arena = []
+			textures_arena = []
+			
+			models_globalresources = []
+			renderables_globalresources = []
+			materials_globalresources = []
+			textures_globalresources = []
+			
+			if os.path.isfile(zonelist_path):
+				zones = read_zonelist(zonelist_path)
+				#([muZoneId, [mauNeighbourId, mauNeighbourFlags, muDistrictId, muArenaId, unknown_0x40], zonepoints[:]])
+				for zone in zones:
+					muZoneId = zone[0] 
+					if muZoneId == track_unit_number:
+						muDistrictId = zone[1][2]
+						muArenaId = zone[1][3]
+						break
+				
+				if muDistrictId != -1:
+					district_path = None
+					for path in districts_path:
+						if str(muDistrictId) in path:
+							district_path = path
+							break
+					
+					if district_path != None:
+						models_disctrict, renderables_disctrict, materials_disctrict, textures_disctrict = read_resources_table(district_path)
+					else:
+						print("WARNING: IDs file of district %d not found in shared folder." % muDistrictId)
+				else:
+					print("WARNING: DistrictId of track unit number %d not found in PVS file." % track_unit_number)
+				
+				if muArenaId > 0:
+					arena_path = None
+					for path in arenas_path:
+						if str(muArenaId) in path:
+							arena_path = path
+							break
+					
+					if arena_path != None:
+						models_arena, renderables_arena, materials_arena, textures_arena = read_resources_table(arena_path)
+					else:
+						print("WARNING: IDs file of arena %d not found in shared folder." % muArenaId)
+				else:
+					print("WARNING: ArenaId of track unit number %d not found in PVS file." % track_unit_number)
+			else:
+				print("WARNING: Outdated library. PVS folder was not found.")
+			
+			if os.path.isfile(globalresources_path):
+				models_globalresources, renderables_globalresources, materials_globalresources, textures_globalresources = read_resources_table(globalresources_path)
+			else:
+				print("WARNING: Outdated library. IDs_GLOBALRESOURCES.BNDL was not found.")
 		
 		elif resource_type == "GraphicsSpec":
 			vehicle_name = main_collection.name
@@ -245,40 +322,52 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				print("ERROR: main_collection's name is in the wrong format. Use a number in integer format.")
 			
 			try:
-				mSkeletonID = main_collection["SkeletonID"]
-			except:
-				mSkeletonID = 0x001777E6
-			
-			try:
-				mSkeletonID = int(mSkeletonID)
+				mSkeletonId = main_collection["SkeletonID"]
 			except:
 				try:
-					if is_valid_id(mSkeletonID) == False:
-						mSkeletonID = "E6_77_17_00"
-					mSkeletonID = id_to_int(mSkeletonID)
+					mSkeletonId = main_collection["SkeletonId"]
 				except:
-					mSkeletonID = 0x001777E6
+					mSkeletonId = 0x001777E6
 			
 			try:
-				mAnimationListID = main_collection["AnimationListID"]
-			except:
-				mAnimationListID = 0x001777E8
-			
-			try:
-				mAnimationListID = int(mAnimationListID)
+				mSkeletonId = int(mSkeletonId)
 			except:
 				try:
-					if is_valid_id(mAnimationListID) == False:
-						mAnimationListID = "E8_77_17_00"
-					mAnimationListID = id_to_int(mAnimationListID)
+					if is_valid_id(mSkeletonId) == False:
+						mSkeletonId = "E6_77_17_00"
+					mSkeletonId = id_to_int(mSkeletonId)
 				except:
-					mAnimationListID = 0x001777E8
+					mSkeletonId = 0x001777E6
+			
+			try:
+				mAnimationListId = main_collection["AnimationListID"]
+			except:
+				try:
+					mAnimationListId = main_collection["AnimationListId"]
+				except:
+					mAnimationListId = 0x001777E8
+			
+			try:
+				mAnimationListId = int(mAnimationListId)
+			except:
+				try:
+					if is_valid_id(mAnimationListId) == False:
+						mAnimationListId = "E8_77_17_00"
+					mAnimationListId = id_to_int(mAnimationListId)
+				except:
+					mAnimationListId = 0x001777E8
 			
 			
 			mCharacterSpecId = int_to_id(character_number)
+			mSkeletonId = int_to_id(mSkeletonId)
+			mAnimationListId = int_to_id(mAnimationListId)
 			characterspec_collection = collections_types["CharacterSpec"]
 			
 			collections = [characterspec_collection,]
+			
+			if "Skeleton" in collections_types:
+				skeleton_collection = collections_types["Skeleton"]
+				collections.append(skeleton_collection)
 		
 		elif resource_type == "ZoneList":
 			try:
@@ -377,6 +466,18 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					
 					if is_model_shared_asset == True:
 						model_path = os.path.join(shared_model_dir, mModelId + ".dat")
+						if resource_type_child == "InstanceList":
+							if mModelId in models_globalresources:
+								pass
+							elif mModelId in models_disctrict:
+								pass
+							elif mModelId in models_arena:
+								pass
+							else:
+								print("ERROR: %s %s is set as a shared asset although its not in the globalresources or its district %d or arena %d." % ("model", mModelId, muDistrictId, muArenaId))
+								if debug_shared_not_found == True:
+									print("WARNING: setting %s %s is_shared_asset to False." % ("model", mModelId))
+									is_model_shared_asset = False
 						if not os.path.isfile(model_path):
 							print("WARNING: %s %s is set as a shared asset although it may not exist on NFSMW PC." % ("model", mModelId))
 							if debug_shared_not_found == True:
@@ -497,6 +598,14 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 									width, height = raster.size
 									if width < 4 or height < 4:
 										print("ERROR: image %s resolution smaller than the supported by the game. It must be bigger than or equal to 4x4." % raster.name)
+										return {"CANCELLED"}
+									
+									if not ((width & (width-1) == 0) and width != 0):
+										print("ERROR: image %s width %d is not a power of two. It must be a power of two." % (raster.name, width))
+										return {"CANCELLED"}
+									
+									if not ((height & (height-1) == 0) and height != 0):
+										print("ERROR: image %s height %d is not a power of two. It must be a power of two." % (raster.name, height))
 										return {"CANCELLED"}
 									
 									is_packed = False
@@ -793,7 +902,8 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						except:
 							try:
 								EffectData = child["EffectData"]
-								EffectData += 2**32 #converting to uint32
+								if EffectData < 0:
+									EffectData += 2**32 #converting to uint32
 							except:
 								EffectData = None
 								try:
@@ -846,10 +956,22 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					
 					try:
 						sensor_hash = object["sensor_hash"]
+						if not is_sensor_hash_valid(sensor_hash, resource_type):
+							#print("WARNING: sensor hash %s from object %s is not valid (not in MW). Assuming as 9A_A9_39_49." % (sensor_hash, object.name))
+							#sensor_hash = "9A_A9_39_49"
+							print("WARNING: sensor hash %s from object %s is not valid (not in MW). Trying to use it." % (sensor_hash, object.name))
+							#continue
 					except:
-						sensor_hash = "9A_A9_39_49"
+						#sensor_hash = "9A_A9_39_49"
+						print("WARNING: object %s is missing parameter %s. Skipping sensor." % (object.name, '"sensor_hash"'))
+						continue
 					
-					sensor = [sensor_index, mSensorPosition, mSensorRotation, parent_sensor, relative_sensor, child_sensor, sensor_hash]
+					try:
+						has_ik = object["has_ik"]
+					except:
+						has_ik = False
+					
+					sensor = [sensor_index, mSensorPosition, mSensorRotation, parent_sensor, relative_sensor, child_sensor, has_ik, sensor_hash]
 					Skeleton.append(sensor)
 					
 					continue
@@ -868,6 +990,18 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				
 				if is_model_shared_asset == True:
 					model_path = os.path.join(shared_model_dir, mModelId + ".dat")
+					if resource_type_child == "InstanceList":
+						if mModelId in models_globalresources:
+							pass
+						elif mModelId in models_disctrict:
+							pass
+						elif mModelId in models_arena:
+							pass
+						else:
+							#print("ERROR: %s %s is set as a shared asset although its not in the globalresources or its district %d or arena %d." % ("model", mModelId, muDistrictId, muArenaId))
+							if debug_shared_not_found == True:
+								#print("WARNING: setting %s %s is_shared_asset to False." % ("model", mModelId))
+								is_model_shared_asset = False
 					if not os.path.isfile(model_path):
 						#print("WARNING: %s %s is set as a shared asset although it may not exist on MW2012 PC." % ("model", mModelId))
 						if debug_shared_not_found == True:
@@ -928,6 +1062,18 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					
 					if is_shared_asset == True:
 						renderable_path = os.path.join(shared_renderable_dir, mRenderableId + ".dat")
+						if resource_type_child == "InstanceList":
+							if mRenderableId in renderables_globalresources:
+								pass
+							elif mRenderableId in renderables_disctrict:
+								pass
+							elif mRenderableId in renderables_arena:
+								pass
+							else:
+								print("ERROR: %s %s is set as a shared asset although its not in the globalresources or its district %d or arena %d." % ("renderable", mRenderableId, muDistrictId, muArenaId))
+								if debug_shared_not_found == True:
+									print("WARNING: setting %s %s is_shared_asset to False." % ("renderable", mRenderableId))
+									is_shared_asset = False
 						if not os.path.isfile(renderable_path):
 							print("WARNING: %s %s is set as a shared asset although it may not exist on NFSMW PC." % ("renderable", mRenderableId))
 							if debug_shared_not_found == True:
@@ -960,7 +1106,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 					object_center = [(max(bbox_x) + min(bbox_x))*0.5, (max(bbox_y) + min(bbox_y))*0.5, (max(bbox_z) + min(bbox_z))*0.5]
 					object_radius = math.dist(object_center, child.bound_box[0])
 					
-					meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, status = read_object(child, resource_type_child, shared_dir, copy_uv_layer, recalculate_vcolor2)
+					meshes_info, indices_buffer, vertices_buffer, object_center, object_radius, submeshes_bounding_box, status = read_object(child, resource_type_child, shared_dir, copy_uv_layer)
 					
 					if status == 1:
 						return {'CANCELLED'}
@@ -992,6 +1138,19 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						
 						if is_material_shared_asset == True:
 							material_path = os.path.join(shared_material_dir, mMaterialId + ".dat")
+							if resource_type_child == "InstanceList":
+								if mMaterialId in materials_globalresources:
+									pass
+								elif mMaterialId in materials_disctrict:
+									pass
+								elif mMaterialId in materials_arena:
+									pass
+								else:
+									print("ERROR: %s %s is set as a shared asset although its not in the globalresources or its district %d or arena %d." % ("material", mMaterialId, muDistrictId, muArenaId))
+									if debug_shared_not_found == True:
+										print("WARNING: setting %s %s is_shared_asset to False." % ("material", mMaterialId))
+										is_material_shared_asset = False
+							
 							if not os.path.isfile(material_path):
 								print("WARNING: %s %s is set as a shared asset although it may not exist on MW2012 PC. Add it to the library and export again." % ("material", mMaterialId))
 								if debug_shared_not_found == True:
@@ -1213,6 +1372,20 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								if is_raster_shared_asset == True:
 									raster_path = os.path.join(shared_raster_dir, mRasterId + ".dat")
 									raster_dds_path = os.path.join(shared_raster_dir, mRasterId + ".dds")
+									
+									if resource_type_child == "InstanceList":
+										if mRasterId in textures_globalresources:
+											pass
+										elif mRasterId in textures_disctrict:
+											pass
+										elif mRasterId in textures_arena:
+											pass
+										else:
+											print("ERROR: %s %s is set as a shared asset although its not in the globalresources or its district %d or arena %d." % ("texture", mRasterId, muDistrictId, muArenaId))
+											if debug_shared_not_found == True:
+												print("WARNING: setting %s %s is_shared_asset to False." % ("texture", mRasterId))
+												is_raster_shared_asset = False
+									
 									if os.path.isfile(raster_path) or os.path.isfile(raster_dds_path):
 										mRasterId = mRasterId
 									else:
@@ -1231,6 +1404,14 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								width, height = raster.size
 								if width < 4 or height < 4:
 									print("ERROR: image %s resolution smaller than the supported by the game. It must be bigger than or equal to 4x4." % raster.name)
+									return {"CANCELLED"}
+								
+								if not ((width & (width-1) == 0) and width != 0):
+									print("ERROR: image %s width %d is not a power of two. It must be a power of two." % (raster.name, width))
+									return {"CANCELLED"}
+								
+								if not ((height & (height-1) == 0) and height != 0):
+									print("ERROR: image %s height %d is not a power of two. It must be a power of two." % (raster.name, height))
 									return {"CANCELLED"}
 								
 								is_packed = False
@@ -1414,6 +1595,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				
 				mu8NumRenderables = len(renderables_info)
 				mu8NumStates = 5
+				
 				try:
 					unknown_0x19 = object["unknown_0x19"]
 				except:
@@ -1426,6 +1608,18 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				except:
 					print("WARNING: object %s is missing parameter %s. Assuming default value." % (object.name, '"lod_distances"'))
 					lod_distances = []
+				
+				try:
+					model_states = object["model_states"]
+					mu8NumStates = len(model_states)
+				except:
+					try:
+						model_states = object["renderable_indices"]
+						mu8NumStates = len(model_states)
+					except:
+						print("WARNING: object %s is missing parameter %s (or %s). Assuming default values." % (object.name, '"renderable_indices"', '"model_states"'))
+						model_states = []
+						mu8NumStates = 5
 				
 				has_tint_data = 0
 				TintData = []
@@ -1544,6 +1738,20 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								if is_raster_shared_asset == True:
 									raster_path = os.path.join(shared_raster_dir, mRasterId + ".dat")
 									raster_dds_path = os.path.join(shared_raster_dir, mRasterId + ".dds")
+									
+									if resource_type_child == "InstanceList":
+										if mRasterId in textures_globalresources:
+											pass
+										elif mRasterId in textures_disctrict:
+											pass
+										elif mRasterId in textures_arena:
+											pass
+										else:
+											print("ERROR: %s %s is set as a shared asset although its not in the globalresources or its district %d or arena %d." % ("texture", mRasterId, muDistrictId, muArenaId))
+											if debug_shared_not_found == True:
+												print("WARNING: setting %s %s is_shared_asset to False." % ("texture", mRasterId))
+												is_raster_shared_asset = False
+									
 									if os.path.isfile(raster_path) or os.path.isfile(raster_dds_path):
 										mRasterId = mRasterId
 									else:
@@ -1562,6 +1770,14 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								width, height = raster.size
 								if width < 4 or height < 4:
 									print("ERROR: image %s resolution smaller than the supported by the game. It must be bigger than or equal to 4x4." % raster.name)
+									return {"CANCELLED"}
+								
+								if not ((width & (width-1) == 0) and width != 0):
+									print("ERROR: image %s width %d is not a power of two. It must be a power of two." % (raster.name, width))
+									return {"CANCELLED"}
+								
+								if not ((height & (height-1) == 0) and height != 0):
+									print("ERROR: image %s height %d is not a power of two. It must be a power of two." % (raster.name, height))
 									return {"CANCELLED"}
 								
 								is_packed = False
@@ -1667,13 +1883,124 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 								if is_packed == True:
 									raster.pack()
 				
-				model_properties = [mu8NumRenderables, mu8NumStates, TintData, unknown_0x19, lod_distances]
+				model_properties = [mu8NumRenderables, mu8NumStates, TintData, unknown_0x19, lod_distances, model_states, resource_type_child]
 				
 				models.append([mModelId, [renderables_info, model_properties], is_model_shared_asset])
 			
 			# Removing models from intancesList that do not have a model file (generic or not)
 			instances[:] = [instance for instance in instances if instance[1][0] in (rows[0] for rows in models)]
 			instances_wheel[:] = [instance for instance in instances_wheel if instance[1][0] in (rows[0] for rows in models)]
+			
+			if resource_type_child == "Skeleton":
+				for object in objects:
+					if object.type != "ARMATURE":
+						continue
+					
+					is_hidden = object.hide_get()
+					if is_hidden == True:
+						continue
+					
+					# Armature
+					mArmatureId = object.data.name
+					mArmatureId = mArmatureId.split(".")[0]
+					
+					if is_valid_id(mArmatureId) == False:
+						mArmatureId = object.name
+						mArmatureId = mArmatureId.split(".")[0]
+						if is_valid_id(mArmatureId) == False:
+							if resource_type == "GraphicsSpec":
+								print("... using a calculated Id for %s" % mArmatureId)
+								mArmatureId = mSkeletonId
+							elif resource_type == "CharacterSpec":
+								print("... using the Id defined in the CharacterSpec collection for %s" % mArmatureId)
+								mArmatureId = mSkeletonId
+							else:
+								return {"CANCELLED"}
+					
+					Skeleton = []
+					mSkeletonId = mArmatureId
+					for b in object.data.bones[:]:
+						#sensor_Transform = object.pose.bones[b.name].bone.matrix_local
+						#mSensorPosition, mSensorRotation_, mSensorScale = sensor_Transform.decompose()
+						
+						#mSensorPosition = list(object.pose.bones[b.name].bone.tail_local[:])
+						mSensorPosition = list(object.pose.bones[b.name].bone.head_local[:])
+						mSensorRotation = [0.0, 0.0, 0.0, 1.0]
+						
+						try:
+							sensor_index = int(b.name.split(".")[0].split("_")[-1].lower().replace("sensor", "").replace("bone", ""))
+						except:
+							try:
+								sensor_index = int(''.join(n for n in b.name if n.isdigit()))
+							except:
+								print("WARNING: bone %s name is in the wrong format. It should be 'Sensor_001' or 'Bone_001'" % b.name)
+								continue
+						
+						if b.parent == None:
+							parent_sensor = -1
+							older_sensor = 0
+						else:
+							try:
+								parent_sensor = int(b.parent.name.split(".")[0].split("_")[-1].lower().replace("sensor", "").replace("bone", ""))
+							except:
+								try:
+									parent_sensor = int(''.join(n for n in b.parent.name if n.isdigit()))
+								except:
+									#print("WARNING: bone %s name is in the wrong format. It should be 'Sensor_001' or 'Bone_001'" % b.parent.name)
+									continue
+							
+							older_sensor = -1
+							for brother in b.parent.children:
+								if brother == b:
+									break
+								
+								try:
+									older_sensor = int(brother.name.split(".")[0].split("_")[-1].lower().replace("sensor", "").replace("bone", ""))
+								except:
+									try:
+										older_sensor = int(''.join(n for n in brother.name if n.isdigit()))
+									except:
+										#print("WARNING: bone %s name is in the wrong format. It should be 'Sensor_001' or 'Bone_001'" % brother.name)
+										continue
+						
+						if len(b.children) == 0:
+							child_sensor = -1
+						else:
+							try:
+								child_sensor = int(b.children[-1].name.split(".")[0].split("_")[-1].lower().replace("sensor", "").replace("bone", ""))
+							except:
+								try:
+									child_sensor = int(''.join(n for n in b.children[-1].name if n.isdigit()))
+								except:
+									#print("WARNING: bone %s name is in the wrong format. It should be 'Sensor_001' or 'Bone_001'" % b.children[-1].name)
+									continue
+						
+						try:
+							sensor_hash = b["hash"]
+							if not is_sensor_hash_valid(sensor_hash, resource_type):
+								#print("WARNING: sensor hash %s from bone %s is not valid (not in MW). Assuming as 9A_A9_39_49." % (sensor_hash, b.name))
+								#sensor_hash = "9A_A9_39_49"
+								print("WARNING: sensor hash %s from bone %s is not valid (not in MW). Trying to use it." % (sensor_hash, b.name))
+								#continue
+						except:
+							#sensor_hash = "9A_A9_39_49"
+							print("WARNING: bone %s is missing parameter %s. Skipping sensor." % (b.name, '"hash"'))
+							continue
+						
+						try:
+							has_ik = b["has_ik"]
+						except:
+							has_ik = False
+						
+						# if round(b.length, 2) == 0.12:
+							# # When the bone length is zero in the game file, the imports adds an increment to its length
+							# for sensor_ in Skeleton:
+								# if sensor_[0] == parent_sensor:
+									# sensor_[1][2] -= 0.12
+									# break
+						
+						sensor = [sensor_index, mSensorPosition, mSensorRotation, parent_sensor, older_sensor, child_sensor, has_ik, sensor_hash]
+						Skeleton.append(sensor)
 		
 		# PVS (ZoneList)
 		if resource_type == "ZoneList":
@@ -2003,19 +2330,29 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			
 			if len(instances) > 0:
 				#characterspec_path = os.path.join(characterspec_dir, mCharacterSpecId + ".dat")
-				#write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, instances)
+				#write_characterspec(characterspec_path, mSkeletonId, mAnimationListId, instances)
 				#mResourceIds.append([mCharacterSpecId, "CharacterSpec", id_to_int(mCharacterSpecId)])
-				##mResourceIds.append([mSkeletonID, "Skeleton", id_to_int(mSkeletonID)])
-				##mResourceIds.append([mAnimationListID, "AnimationList", id_to_int(mAnimationListID)])
+				##mResourceIds.append([mSkeletonId, "Skeleton", id_to_int(mSkeletonId)])
+				##mResourceIds.append([mAnimationListId, "AnimationList", id_to_int(mAnimationListId)])
 				
 				characterspec_path = os.path.join(characterspec_dir, mCharacterSpecId + ".dat")
 				already_is_file = False
 				if os.path.isfile(characterspec_path):
 					print("WARNING: file %s already exists in %s. Replacing it with new file." % (mCharacterSpecId, main_collection.name))
 					already_is_file = True
-				write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, instances)
+				write_characterspec(characterspec_path, mSkeletonId, mAnimationListId, instances)
 				if already_is_file == False:
 					mResourceIds.append([mCharacterSpecId, "CharacterSpec", id_to_int(mCharacterSpecId)])
+			
+			if len(Skeleton) > 0:
+				skeleton_path = os.path.join(skeleton_dir, mSkeletonId + ".dat")
+				already_is_file = False
+				if os.path.isfile(skeleton_path):
+					print("WARNING: file %s already exists in %s. Replacing it with new file." % (mSkeletonId, main_collection.name))
+					already_is_file = True
+				write_skeleton(skeleton_path, Skeleton)
+				if already_is_file == False:
+					mResourceIds.append([mSkeletonId, "Skeleton", id_to_int(mSkeletonId)])
 		
 		elif resource_type == "ZoneList":
 			zonelist_path = os.path.join(zonelist_dir, mZoneListId + ".dat")
@@ -2033,7 +2370,7 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 			if os.path.isfile(model_path):
 				print("WARNING: file %s already exists in %s. Replacing it with new file." % (mModelId, main_collection.name))
 				already_is_file = True
-			write_model(model_path, model, resource_type)
+			write_model(model_path, model, resource_type, main_collection.name)
 			if already_is_file == False:
 				mResourceIds.append([mModelId, "Model", id_to_int(mModelId)])
 		
@@ -2117,10 +2454,13 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 				print("ERROR: SamplerState %s does not exist on library. Add it manually to the SamplerState folder. Continuing to export." % mSamplerStateId)
 				mResourceIds.append([mSamplerStateId, "SamplerState", id_to_int(mSamplerStateId)])
 		
+		
 		mResourceIds_ = [mResourceId[0] for mResourceId in mResourceIds]
 		if len(mResourceIds_) != len(set(mResourceIds_)):
-			print("ERROR: duplicated resource IDs. Verify the list below for the duplicated IDs and do the proper fixes.")
-			print(mResourceIds)
+			print("ERROR: duplicated resource IDs. Verify the list below for the duplicated IDs and do the proper fixes:")
+			duplicated_ids = [k for k,v in Counter(mResourceIds_).items() if v>1]
+			duplicated_ids_ = [[mResourceId[0], mResourceId[1]] for mResourceId in mResourceIds if mResourceId[0] in duplicated_ids]
+			print(duplicated_ids_)
 			return {'CANCELLED'}
 		
 		ids_table_path = os.path.join(directory_path, "IDs.BIN")
@@ -2286,12 +2626,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 	return {'FINISHED'}
 
 
-def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vcolor2):
+def read_object(object, resource_type, shared_dir, copy_uv_layer):
 	# Definitions
 	shared_material_dir = os.path.join(shared_dir, "Material")
-	#shared_vertex_descriptor_dir = os.path.join(shared_dir, "VertexDescriptor")
-	#shared_vertex_descriptor_ported_x360_dir = os.path.join(shared_dir, "VertexDescriptor_port_X360")
-	#shared_vertex_descriptor_ported_ps3_dir = os.path.join(shared_dir, "VertexDescriptor_port_PS3")
 	
 	# Mesh data definitions
 	num_meshes = len(object.material_slots)
@@ -2314,8 +2651,22 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 	has_uv = len(mesh.uv_layers) > 0
 	if has_uv:
 		uv_layers = bm.loops.layers.uv
+		
+		uv_layers_ready_for_mw = True
+		for layer in uv_layers:
+			if layer.name.upper() in ("TEXCOORD1", "TEXCOORD2", "TEXCOORD3", "TEXCOORD4", "TEXCOORD5", "TEXCOORD6", "TEXCOORD7", "TEXCOORD8"):
+				pass
+			elif layer.name.upper() in ("UVMAP", "UV1MAP", "UV2MAP", "UV3MAP", "UV4MAP", "UV5MAP", "UV6MAP", "UV7MAP", "UV8MAP"):
+				pass
+			else:
+				uv_layers_ready_for_mw = False
+				break
 	else:
 		uv_layers = []
+		uv_layers_ready_for_mw = False
+	
+	deform_layer = bm.verts.layers.deform.active
+	group_names = tuple(vertex_group.name for vertex_group in object.vertex_groups)
 	
 	if num_meshes == 0:
 		print("ERROR: no materials applied on mesh %s." % mesh.name)
@@ -2338,6 +2689,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 	ind = [0] * num_meshes
 	
 	mMaterialIds = [""] * num_meshes
+	vertex_properties_list = [""] * num_meshes
 	
 	vertices_x = []
 	vertices_y = []
@@ -2361,6 +2713,26 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 				#mMaterialIds[mesh_index] = material_name.split(".")[0]
 				mMaterialIds[mesh_index] = material_name				# Not splitting at ".001". Each one is identifyed as a unique material by Blender and so the exporter
 				not_used_material_slots.remove(mesh_index)
+				
+				mat = bpy.data.materials.get(material_name)
+				
+				try:
+					shader_type = mat["shader_type"]
+					
+					with Suppressor():
+						mShaderId, shader_type = get_mShaderID(shader_type, resource_type)
+					
+					shared_shader_dir = os.path.join(os.path.join(shared_dir, "SHADERS"), "Shader")
+					shader_path = os.path.join(shared_shader_dir, mShaderId + "_83.dat")
+					_, mVertexDescriptorId, _, _, _, _, _ = read_shader(shader_path)
+					
+					shared_vertex_descriptor_dir = os.path.join(os.path.join(shared_dir, "SHADERS"), "VertexDescriptor")
+					vertex_descriptor_path = os.path.join(shared_vertex_descriptor_dir, mVertexDescriptorId + ".dat")
+					vertex_properties = read_vertex_descriptor(vertex_descriptor_path)
+				except:
+					vertex_properties = None
+				
+				vertex_properties_list[mesh_index] = vertex_properties
 			
 			if len(face.verts) > 3:
 				print("ERROR: non triangular face on mesh %s." % mesh.name)
@@ -2380,19 +2752,95 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 				positions[mesh_index][vert_index] = vert.co
 				#normals[mesh_index][vert_index] = vert.normal
 				#print(vert.normal)
-				if None in [blend_index1, blend_index2, blend_index3, blend_index4]:
-					blends_indices[mesh_index][vert_index] = [0, 0, 0, 0]
+				
+				# New method (vertex group)
+				deform_sensor_data = []
+				deform_bone_data = []
+				blend_indices = [0, 0, 0, 0]
+				blend_weight = [0xFF, 0, 0, 0]
+				
+				if deform_layer is not None:
+					for vertex_group_index, weight in vert[deform_layer].items():
+						name = group_names[vertex_group_index]
+						if "sensor_" in name.lower():
+							name = int(name.split("_")[1])	# If error: bone and sensor data is in the wrong format. It should be 'Bone_001' or 'Sensor_001'
+							deform_sensor_data.append((name, int(round(weight*255.0))))
+						elif "bone_" in name.lower():
+							name = int(name.split("_")[1])	# If error: bone and sensor data is in the wrong format. It should be 'Bone_001' or 'Sensor_001'
+							deform_bone_data.append((name, int(round(weight*255.0))))
+					
+					for i, sensor_data in enumerate(deform_sensor_data):
+						blend_indices[i] = sensor_data[0]
+						blend_weight[i] = sensor_data[1]
+					
+					for i, bone_data in enumerate(deform_bone_data):
+						blend_indices[i+2] = bone_data[0]
+						blend_weight[i+2] = bone_data[1]
+				
+				#blends_indices[mesh_index][vert_index] = blend_indices
+				#blends_weights[mesh_index][vert_index] = blend_weight
+				if blend_indices == [0, 0, 0, 0] and blend_weight == [0xFF, 0, 0, 0]:
+					# Keeping for compatibility
+					if None in [blend_index1, blend_index2, blend_index3, blend_index4]:
+						blends_indices[mesh_index][vert_index] = [0, 0, 0, 0]
+					else:
+						blends_indices[mesh_index][vert_index] = [vert[blend_index1], vert[blend_index2], vert[blend_index3], vert[blend_index4]]
+					if None in [blend_weight1, blend_weight2, blend_weight3, blend_weight4]:
+						blends_weights[mesh_index][vert_index] = [0xFF, 0, 0, 0]
+					else:
+						blends_weights[mesh_index][vert_index] = [int(round(vert[blend_weight1]*255.0/100.0)), int(round(vert[blend_weight2]*255.0/100.0)),
+																  int(round(vert[blend_weight3]*255.0/100.0)), int(round(vert[blend_weight4]*255.0/100.0))]
 				else:
-					blends_indices[mesh_index][vert_index] = [vert[blend_index1], vert[blend_index2], vert[blend_index3], vert[blend_index4]]
-				if None in [blend_weight1, blend_weight2, blend_weight3, blend_weight4]:
-					blends_weights[mesh_index][vert_index] = [0xFF, 0, 0, 0]
-				else:
-					blends_weights[mesh_index][vert_index] = [int(round(vert[blend_weight1]*255.0/100.0)), int(round(vert[blend_weight2]*255.0/100.0)),
-															  int(round(vert[blend_weight3]*255.0/100.0)), int(round(vert[blend_weight4]*255.0/100.0))]
+					blends_indices[mesh_index][vert_index] = blend_indices
+					blends_weights[mesh_index][vert_index] = blend_weight
 			
 			indices_buffer[mesh_index].append(indices)
 			
-			if has_uv:
+			if has_uv and uv_layers_ready_for_mw == True:
+				for loop in face.loops:
+					uvs = [None]*8
+					for layer in uv_layers:
+						if layer.name.upper() == "UVMAP":
+							index_layer = 0
+						else:
+							index_layer = int(layer.name.upper().replace("TEXCOORD", "").replace("UV", "").replace("MAP", "")) - 1
+						uvs[index_layer] = loop[layer].uv
+					
+					# Cheking if all necessary uvs are present
+					vertex_properties = vertex_properties_list[mesh_index]
+					if vertex_properties != None:
+						semantic_properties = vertex_properties[1][0]
+						for index_layer, uv_ in enumerate(uvs):
+							if uv_ == None:
+								for semantic in semantic_properties:
+									if semantic[0] == "TEXCOORD" + str(index_layer + 1):
+										if semantic[1][0] in ("2f", "2e"):
+											#print("WARNING: uv layer %d (%s) is missing on model %s (material %s). It is required by the shader %s" %(index_layer, semantic[0], object.name, mMaterialId, shader_type))
+											if copy_uv_layer == True and uvs[0] != None:
+												#print("... copying layer zero.")
+												uvs[index_layer] = uvs[0]
+											else:
+												#print("... defining as zero.")
+												uvs[index_layer] = [0.0, 0.0]
+										else:
+											# They don't matter
+											uvs[index_layer] = [0.0, 0.0]
+										break
+								else:
+									# They don't matter
+									uvs[index_layer] = [0.0, 0.0]
+					else:
+						for index_layer, uv_ in enumerate(uvs):
+							if uv_ == None:
+								if copy_uv_layer == True and uvs[0] != None:
+									#print("... copying layer zero.")
+									uvs[index_layer] = uvs[0]
+								else:
+									#print("... defining as zero.")
+									uvs[index_layer] = [0.0, 0.0]
+					
+					uv[mesh_index][vert_indices[mesh_index][loop.vert.index]] = uvs
+			elif has_uv:
 				for loop in face.loops:
 					uvs = []
 					for layer in range(0, len(uv_layers)):
@@ -2412,8 +2860,15 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 				binormal = [0.0, 0.0, 0.0]
 				#color = [0, 0, 0, 0xFF]
 				color = [0xFF, 0xFF, 0xFF, 0xFF]
-				color2 = [0, 0, 0, 0]
-				if len(uv_layers) >= 6:
+				color2 = []
+				if uv_layers_ready_for_mw == True:
+					uv1 = uv[mesh_index][index][0]
+					uv2 = uv[mesh_index][index][1]
+					uv3 = uv[mesh_index][index][2]
+					uv4 = uv[mesh_index][index][3]
+					uv5 = uv[mesh_index][index][4]
+					uv6 = uv[mesh_index][index][5]
+				elif len(uv_layers) >= 6:
 					uv1 = uv[mesh_index][index][0]
 					uv2 = uv[mesh_index][index][1]
 					uv3 = uv[mesh_index][index][2]
@@ -2546,7 +3001,6 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 		elif "vcolor2" in mesh_vertex_colors:
 			vcolor2_layer_index = mesh_vertex_colors.keys().index("vcolor2")
 		else:
-			print("WARNING: no additional vertex color (VColor2) on mesh %s. Default VColor2 will be used if needed." % mesh.name)
 			vcolor2_layer = False
 		
 	else:
@@ -2569,7 +3023,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 			shader_type = mat["shader_type"]
 		except:
 			shader_type = ""
-			
+		
 		mShaderId, shader_type = get_mShaderID(shader_type, resource_type)
 		
 		if has_uv and use_blender_calc_tangents:
@@ -2603,6 +3057,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 				normal = list(loops[loop_ind].normal[:])
 				tangent = [0.0, 0.0, 0.0]
 				binormal = [0.0, 0.0, 0.0]
+				color2 = []
 				
 				if use_blender_calc_tangents:
 					tangent = list(loops[loop_ind].tangent[:])
@@ -2627,35 +3082,19 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer, recalculate_vc
 					color = [0, 0, 0, 179] #0.709
 				else:
 					color = [255, 255, 255, 255]
-				if vcolor2_layer and recalculate_vcolor2 == False:
+				if vcolor2_layer: # For compatibility
 					# When some new face is added it might not have a proper vcolor2
 					color2 = list(mesh_vertex_colors[vcolor2_layer_index].data[loop_ind].color[:])
 					for i in range(0, 4):
 						if i < 3 and using_color_attributes == True:
 							color2[i] = lin2s1(color2[i])
 						color2[i] = round(color2[i] * 255.0)
-				else:
-					#color2 = [0, 0, 0, 0]
-					#color2 = [119, 254, 144, 129]
-					
-					color2 = normal[:]
-					swizzle_normals(color2, normal, 0, "-Y")
-					swizzle_normals(color2, normal, 1, "+X")
-					swizzle_normals(color2, normal, 2, "+Z")
-					
-					color2 = (Vector(color2) * 0.5) + Vector((0.5,) * 3)
-					color2.resize_4d()
-					color2 = list(color2 * 255.0)
-					for i in range(0, 4):
-						color2[i] = round(color2[i])
-					
 				
 				mesh_vertices_buffer[mesh_index][vert_index][2] = normal[:]
 				mesh_vertices_buffer[mesh_index][vert_index][3] = tangent[:]
 				mesh_vertices_buffer[mesh_index][vert_index][4] = color[:]
 				mesh_vertices_buffer[mesh_index][vert_index][13] = binormal[:]
 				mesh_vertices_buffer[mesh_index][vert_index][14] = color2[:]
-				
 	
 	if use_blender_calc_tangents:
 		mesh.free_tangents()
@@ -3051,6 +3490,133 @@ def read_shader(shader_path):	#ok
 	return (shader_description, mVertexDescriptorId, miNumSamplers, raster_types_dict, shader_parameters, material_constants, texture_samplers)
 
 
+def read_zonelist(zonelist_path):
+	# To do: figure what is unknown_0x40
+	zones = []
+	with open(zonelist_path, "rb") as f:
+		mpPoints = struct.unpack("<I", f.read(0x4))[0]
+		mpZones = struct.unpack("<I", f.read(0x4))[0]
+		mpuZonePointStarts = struct.unpack("<I", f.read(0x4))[0]
+		mpiZonePointCounts = struct.unpack("<I", f.read(0x4))[0]
+		muTotalZones = struct.unpack("<I", f.read(0x4))[0]
+		muTotalPoints = struct.unpack("<I", f.read(0x4))[0]
+		const_0x18 = struct.unpack("<B", f.read(0x1))[0]
+		
+		points = []
+		f.seek(mpPoints, 0)
+		for i in range(0, muTotalPoints):
+			points.append(list(struct.unpack("<2f", f.read(0x8))))
+			padding = struct.unpack("<2I", f.read(0x8))
+		
+		f.seek(mpZones, 0)
+		for i in range(0, muTotalZones):
+			f.seek(mpZones + 0x50*i, 0)
+			mpPoints = struct.unpack("<I", f.read(0x4))[0]
+			null_0x4 = struct.unpack("<I", f.read(0x4))[0]
+			null_0x8 = struct.unpack("<I", f.read(0x4))[0]
+			null_0xC = struct.unpack("<I", f.read(0x4))[0]
+			
+			# Bounding box
+			mAabbMinX, unknown_0x14, unknown_0x16, mAabbMinZ, null_0x1C = struct.unpack("<fhhfI", f.read(0x10))
+			mAabbMaxX, unknown_0x24, unknown_0x26, mAabbMaxZ, null_0x2C = struct.unpack("<fhhfI", f.read(0x10))
+			
+			mpNeighbours = struct.unpack("<I", f.read(0x4))[0]		# mpSafeNeighbours or mpUnsafeNeighbours?
+			muZoneId = struct.unpack("<H", f.read(0x2))[0]
+			null_0x36 = struct.unpack("<H", f.read(0x2))[0]
+			muDistrictId = struct.unpack("<I", f.read(0x4))[0]
+			muArenaId = struct.unpack("<I", f.read(0x4))[0]
+			
+			unknown_0x40 = struct.unpack("<H", f.read(0x2))[0]	# miNumUnsafeNeighbours? 0 or 1
+			miNumPoints = struct.unpack("<B", f.read(0x1))[0]
+			miNumNeighbours = struct.unpack("<B", f.read(0x1))[0]	# 	miNumSafeNeighbours?
+			null_0x44 = struct.unpack("<I", f.read(0x4))[0]
+			null_0x48 = struct.unpack("<I", f.read(0x4))[0]
+			null_0x4C = struct.unpack("<I", f.read(0x4))[0]
+			
+						
+			#mpNeighbours
+			mauNeighbourId = []
+			mauNeighbourFlags = []
+			f.seek(mpNeighbours, 0)
+			for j in range(0, miNumNeighbours):
+				f.seek(mpNeighbours + 0x8*j, 0)
+				mpZone = struct.unpack("<I", f.read(0x4))[0]
+				muNeighbourFlags = struct.unpack("<I", f.read(0x4))[0]	#1 or 3
+				if muNeighbourFlags != 1 and muNeighbourFlags != 3:
+					print("DEBUG INFO: muNeighbourFlags is different from 1 and 3.")
+				f.seek(mpZone + 0x34, 0)
+				muNeighbourId = struct.unpack("<H", f.read(0x2))[0]
+				mauNeighbourId.append(muNeighbourId)
+				mauNeighbourFlags.append(get_neighbour_flags(muNeighbourFlags))
+			
+			#mpPoints
+			f.seek(mpPoints, 0)
+			zonepoints = []
+			for j in range(miNumPoints):
+				zonepoints.append(list(struct.unpack("<2f", f.read(0x8))))
+				padding = struct.unpack("<2I", f.read(0x8))
+			
+			zones.append([muZoneId, [mauNeighbourId, mauNeighbourFlags, muDistrictId, muArenaId, unknown_0x40], zonepoints[:]])
+	
+	return zones
+
+
+def read_resources_table(resource_entries_path):
+	models = []
+	renderables = []
+	materials  = []
+	textures = []
+	
+	len_resource_entries_data = os.path.getsize(resource_entries_path)
+	
+	with open(resource_entries_path, "rb") as f:
+		macMagicNumber = str(f.read(0x4), 'ascii')
+		
+		data_type = ["H", 0x2]
+		numDataOffsets = 4
+		
+		muVersion = struct.unpack("<%s" % data_type[0], f.read(data_type[1]))[0]
+		muPlatform = struct.unpack("<%s" % data_type[0], f.read(data_type[1]))[0]
+		muDebugDataOffset = struct.unpack("<I", f.read(0x4))[0]
+		muResourceEntriesCount = struct.unpack("<I", f.read(0x4))[0]
+		muResourceEntriesOffset = struct.unpack("<I", f.read(0x4))[0]
+		mauResourceDataOffset = struct.unpack("<%dI" % numDataOffsets, f.read(numDataOffsets*0x4))
+		muFlags = struct.unpack("<I", f.read(0x4))[0]
+		pad1 = struct.unpack("<I", f.read(0x4))[0]
+		pad2 = struct.unpack("<I", f.read(0x4))[0]
+		
+		muResourceEntriesCount_verification = (len_resource_entries_data - muResourceEntriesOffset)//0x48
+		if muResourceEntriesCount != muResourceEntriesCount_verification:
+			muResourceEntriesCount = muResourceEntriesCount_verification
+		
+		debug_data = f.read(muResourceEntriesOffset - f.tell())
+		
+		mResources = []
+		for i in range(0, muResourceEntriesCount):
+			f.seek(muResourceEntriesOffset + i*0x48, 0)
+			mResourceId = bytes_to_id(f.read(0x4))
+			countBlock, null = struct.unpack("<2B", f.read(0x2))	# null always equal to zero
+			count, isIdInteger = struct.unpack("<2B", f.read(0x2))	# isIdInteger seems to be related with CRC32 ids or unique IDs; always zero or one
+			f.seek(0x34, 1)
+			muResourceTypeId = struct.unpack("<I", f.read(0x4))[0]
+			f.seek(0x2, 1)
+			unused_muFlags = struct.unpack("<B", f.read(0x1))[0]
+			muStreamIndex = struct.unpack("<B", f.read(0x1))[0]
+			
+			muResourceType, nibbles = get_resourcetype_nibble_mw(muResourceTypeId)
+			
+			if muResourceType == "Model":
+				models.append(mResourceId)
+			elif muResourceType == "Renderable":
+				renderables.append(mResourceId)
+			elif muResourceType == "Material":
+				materials.append(mResourceId)
+			elif muResourceType == "Texture":
+				textures.append(mResourceId)
+	
+	return (models, renderables, materials, textures)
+
+
 def write_instancelist(instancelist_path, instances):
 	os.makedirs(os.path.dirname(instancelist_path), exist_ok = True)
 	
@@ -3420,7 +3986,7 @@ def write_zoneheader(zoneheader_path, mInstanceListId, mDynamicInstanceListId, m
 	return 0
 
 
-def write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, instances):
+def write_characterspec(characterspec_path, mSkeletonId, mAnimationListId, instances):
 	os.makedirs(os.path.dirname(characterspec_path), exist_ok = True)
 	
 	with open(characterspec_path, "wb") as f:
@@ -3443,16 +4009,16 @@ def write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, insta
 		f.write(struct.pack('<B', 0))
 		f.seek(mppAllocatedSpace + padding0, 0)
 		
-		#f.write(id_to_bytes(mSkeletonID))
-		f.write(struct.pack('<I', mSkeletonID))
+		f.write(id_to_bytes(mSkeletonId))
+		#f.write(struct.pack('<I', mSkeletonId))
 		f.write(struct.pack('<H', 0))
 		f.write(struct.pack('<B', 0))
 		f.write(struct.pack('<B', 1))
 		f.write(struct.pack('<I', 0x4))
 		f.write(struct.pack('<i', 0))
 		
-		#f.write(id_to_bytes(mAnimationListID))
-		f.write(struct.pack('<I', mAnimationListID))
+		f.write(id_to_bytes(mAnimationListId))
+		#f.write(struct.pack('<I', mAnimationListId))
 		f.write(struct.pack('<H', 0))
 		f.write(struct.pack('<B', 0))
 		f.write(struct.pack('<B', 1))
@@ -3470,7 +4036,7 @@ def write_characterspec(characterspec_path, mSkeletonID, mAnimationListID, insta
 	return 0
 
 
-def write_model(model_path, model, resource_type):	#ok
+def write_model(model_path, model, resource_type, name):	#ok
 	os.makedirs(os.path.dirname(model_path), exist_ok = True)
 	
 	with open(model_path, "wb") as f:
@@ -3486,16 +4052,24 @@ def write_model(model_path, model, resource_type):	#ok
 		TintData = model_properties[2]
 		unknown_0x19 = model_properties[3]
 		lod_distances_game = model_properties[4]
+		model_states = model_properties[5]
+		resource_type_child = model_properties[6]
 		
-		if mu8NumRenderables == 1:
-			mu8NumStates = 1
-			muNumLodDistances = 1
-		else:
-			mu8NumStates = 5
-			muNumLodDistances = 5
+		if model_states == []:
+			if resource_type_child == "GraphicsSpec":
+				mu8NumStates = 7
+			elif resource_type_child == "WheelGraphicsSpec":
+				mu8NumStates = 5
+				if "LO" in name.upper():
+					mu8NumStates = 4
+			elif mu8NumRenderables == 1:
+				mu8NumStates = 5
+			else:
+				mu8NumStates = 5
+		muNumLodDistances = mu8NumStates
 		mu8VersionNumber = 5
 		
-		if mu8NumStates < mu8NumRenderables:
+		if mu8NumStates < mu8NumRenderables and model_states == []:
 			mu8NumStates = mu8NumRenderables + 2
 			# Not updating the muNumLodDistances, it can be lower
 		
@@ -3589,7 +4163,8 @@ def write_model(model_path, model, resource_type):	#ok
 		
 		#renderable_indices = [-1]*mu8NumStates
 		lod_distances = []
-		if mu8NumRenderables == 1:
+		#if mu8NumRenderables == 1:
+		if muNumLodDistances == 1:
 			#renderable_indices[0] = 0
 			if lod_distances_game == []:
 				lod_distances.append(maxLodDistance)
@@ -3606,6 +4181,34 @@ def write_model(model_path, model, resource_type):	#ok
 		for i in range(0, mu8NumRenderables):
 			renderable_indices[-1-i] = (mu8NumRenderables-1) - i
 		
+		if resource_type_child == "WheelGraphicsSpec" and mu8NumRenderables == 2 and "HI" in name.upper():
+			renderable_indices[0] = 0
+			renderable_indices[1] = 255
+			renderable_indices[2] = 255
+			renderable_indices[3] = 255
+			renderable_indices[4] = 1
+		elif resource_type_child == "WheelGraphicsSpec" and mu8NumRenderables == 3 and "HI" in name.upper():
+			renderable_indices[0] = 0
+			renderable_indices[1] = 1
+			renderable_indices[2] = 255
+			renderable_indices[3] = 255
+			renderable_indices[4] = 2
+		elif resource_type_child == "GraphicsSpec" and mu8NumRenderables == 6 and "LO" in name.upper():
+			renderable_indices[0] = 0
+			renderable_indices[1] = 1
+			renderable_indices[2] = 2
+			renderable_indices[3] = 3
+			renderable_indices[4] = 4
+			renderable_indices[4] = 255
+			renderable_indices[6] = 5
+		elif resource_type_child == "GraphicsSpec" and (mu8NumRenderables == 2 or mu8NumRenderables == 3):
+			renderable_indices[4] = 1
+			renderable_indices[5] = 255
+			#renderable_indices[6] = 2
+		
+		if model_states != []:
+			renderable_indices = model_states[:]
+			renderable_indices = [255 if x==-1 else x for x in renderable_indices]
 		
 		mppRenderables_ = [0]*mu8NumRenderables
 		
@@ -3634,7 +4237,7 @@ def write_model(model_path, model, resource_type):	#ok
 		f.write(struct.pack('<B', 0))
 		
 		f.seek(mpu8StateRenderableIndices, 0)
-		f.write(struct.pack('<%db' % mu8NumStates, *renderable_indices))
+		f.write(struct.pack('<%dB' % mu8NumStates, *renderable_indices))
 		
 		f.seek(mpfLodDistances, 0)
 		f.write(struct.pack('<%df' % muNumLodDistances, *lod_distances))
@@ -3719,7 +4322,7 @@ def write_model(model_path, model, resource_type):	#ok
 
 
 def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#ok
-	shared_vertex_descriptor_dir = os.path.join(shared_dir, "VertexDescriptor")
+	shared_vertex_descriptor_dir = os.path.join(os.path.join(shared_dir, "SHADERS"), "VertexDescriptor")
 	
 	os.makedirs(os.path.dirname(renderable_path), exist_ok = True)
 	
@@ -3966,17 +4569,29 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 						values = [uv1[0], 1.0 - uv1[1]]
 					elif semantic_type == "TEXCOORD2":
 						if data_type[0] == "4B":
-							values = color2
+							if color2 == []:
+								quat = normal_to_quaternion(Vector(normal))
+								values = quaternion_to_ubyte(quat)
+							else:
+								values = color2
 						else:
 							values = [uv2[0], 1.0 - uv2[1]]
 					elif semantic_type == "TEXCOORD3":
 						if data_type[0] == "4B":
-							values = color2
+							if color2 == []:
+								quat = normal_to_quaternion(Vector(normal))
+								values = quaternion_to_ubyte(quat)
+							else:
+								values = color2
 						else:
 							values = [uv3[0], 1.0 - uv3[1]]
 					elif semantic_type == "TEXCOORD4":
 						if data_type[0] == "4B":
-							values = color2
+							if color2 == []:
+								quat = normal_to_quaternion(Vector(normal))
+								values = quaternion_to_ubyte(quat)
+							else:
+								values = color2
 						else:
 							values = [uv4[0], 1.0 - uv4[1]]
 					elif semantic_type == "TEXCOORD5":		#custom normal
@@ -4020,55 +4635,8 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 					elif "norm" in data_type[0]:
 						data_type = data_type[0].replace("norm", "")
 						if semantic_type == "TEXCOORD5" or semantic_type == "TEXCOORD6":	#NORMAL_PACKED and NORMAL_PACKED for wheels
-							x, y, z, w = calculate_packed_normals(values)
-							
-							x = round(x)
-							y = round(y)
-							z = round(z)
-							w = round(w)
-							
-							# normal = Vector(values[:])
-							# vec = Vector((0.0, 0.0, 1.0))
-							# normal = normal.normalized()
-							# vec = vec.normalized()
-							
-							# if normal[2] < 0:
-								# v = Vector((0.0, 0.0, -1.0))
-							# else:
-								# v = Vector((0.0, 0.0, 1.0))
-							
-
-							# # Unfortunately, we have to check for when u == -v, as u + v
-							# # in this case will be (0, 0, 0), which cannot be normalized.
-							# if normal == -vec:
-								# #180 degree rotation around any orthogonal vector
-								# q = Quaternion()
-								# q.x, q.y, q.z = normal.orthogonal().normalized()
-								# q.w = 0.0
-							# else:
-								# #half = (normal + vec).normalized()
-								# #q = Quaternion()
-								# #q.x, q.y, q.z = normal.cross(half)
-								# ##q.x, q.y, q.z = normal.cross(half).normalized()
-								# #q.w = normal.dot(half)
-								
-								# q = normal.rotation_difference(vec)
-							
-							# x = round(q.x*0x7FFF)
-							# y = round(q.y*0x7FFF)
-							# z = round(q.z*0x7FFF)
-							# w = round(q.w*0x7FFF)
-							
-							# # x = round(q.y*0x7FFF)
-							# # y = round(q.z*0x7FFF)
-							# # z = round(q.w*0x7FFF)
-							# # w = round(q.x*0x7FFF)
-							
-							# # x = round(q.w*0x7FFF)
-							# # y = round(q.z*0x7FFF)
-							# # z = round(q.y*0x7FFF)
-							# # w = round(q.x*0x7FFF)
-							
+							quat = normal_to_quaternion(Vector(values))
+							x, y, z, w = quaternion_to_short(quat)
 						else:
 							scale = 10.0
 							w = 32767.0
@@ -4079,7 +4647,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 						g.write(struct.pack("<%s" % data_type, x, y, z, w))
 					else:
 						try:
-							g.write(struct.pack("<%s" % data_type[0], *values))
+							g.write(struct.pack("<%s" % data_type[0], *values[:int(data_type[0][0])]))
 						except:
 							if mesh_index_error != mesh_index:
 								print("WARNING: unknown vertex type found on %s mesh index %i. It is a type %s with data type %s with length %s. Writing a null data." % (mRenderableId, mesh_index, semantic_type, data_type[0], str(hex(data_type[1]))))
@@ -4331,18 +4899,22 @@ def write_skeleton(skeleton_path, Skeleton):
 	with open(skeleton_path, "wb") as f:
 		mppPointer = 0x20
 		muCount = len(Skeleton)
+		miNumberOfIKParts = len([sensor[6] for sensor in Skeleton if sensor[6] == True])
+		
 		mppPointer2 = mppPointer + 0x30*muCount
-		mppPointer3 = mppPointer2
+		mppPointer3 = mppPointer2 + 0x4*miNumberOfIKParts
+		mppPointer3 += calculate_padding(mppPointer3, 0x10)
 		
 		f.write(struct.pack('<H', 0x2))
 		f.write(struct.pack('<H', muCount))
 		f.write(struct.pack('<I', mppPointer))
 		f.write(struct.pack('<I', mppPointer2))
 		f.write(struct.pack('<I', mppPointer3))
+		f.write(struct.pack('<H', miNumberOfIKParts))
 		
 		f.seek(mppPointer, 0)
 		for i in range(0, muCount):
-			sensor_index, location, rotation, parent_sensor, relative_sensor, child_sensor, hash = Skeleton[i]
+			sensor_index, location, rotation, parent_sensor, older_sensor, child_sensor, has_ik, hash = Skeleton[i]
 			
 			f.seek(mppPointer + 0x30*i, 0)
 			f.write(struct.pack('<3f', *location))
@@ -4352,9 +4924,16 @@ def write_skeleton(skeleton_path, Skeleton):
 			f.write(struct.pack('<4f', *rotation))
 			
 			f.write(struct.pack('<i', parent_sensor))
-			f.write(struct.pack('<i', relative_sensor))
+			f.write(struct.pack('<i', older_sensor))
 			f.write(struct.pack('<i', child_sensor))
 			f.write(struct.pack('<i', sensor_index))
+		
+		f.seek(mppPointer2, 0)
+		for i in range(0, muCount):
+			has_ik = Skeleton[i][-2]
+			if has_ik == True:
+				sensor_index = Skeleton[i][0]
+				f.write(struct.pack('<i', sensor_index))
 		
 		f.seek(mppPointer3, 0)
 		for i in range(0, muCount):
@@ -4642,8 +5221,10 @@ def write_zonelist(zonelist_path, zones):
 			for j in range(0, miNumNeighbours):
 				f.seek(mpNeighbours + 0x8*j, 0)
 				try:
-					f.write(struct.pack('<I', mpZoneDict[mauNeighbourId[j]]))
-					f.write(struct.pack('<I', mauNeighbourFlags[j]))
+					mpZone = mpZoneDict[mauNeighbourId[j]]
+					muNeighbourFlag = mauNeighbourFlags[j]
+					f.write(struct.pack('<I', mpZone))
+					f.write(struct.pack('<I', muNeighbourFlag))
 				except:
 					print("ERROR: zone object %d is missing. It is referenced as a neighbour of zone %d. Writing a null one, but it might crash your game." % (mauNeighbourId[j], muZoneId))
 					f.write(struct.pack('<I', 0))
@@ -4718,7 +5299,7 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 				f.write(b'NAV')
 			
 			f.seek(muHeaderOffset, 0)
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.3 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.5 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(muResourceEntriesOffset, 0)
 		
@@ -4828,11 +5409,13 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 		f.seek(0xC, 0)
 		mpWheelsData = struct.unpack("<I", f.read(0x4))[0]
 		muPartsCount = struct.unpack("<H", f.read(0x2))[0]
+		unknown_0x12 = struct.unpack("<B", f.read(0x1))[0]
+		num_wheels = struct.unpack("<B", f.read(0x1))[0]
 		
 		mpWheelAllocateSpace = []
 		object_placements = []
 		mNumWheelParts = 0
-		for i in range(0, 4):
+		for i in range(0, num_wheels):
 			f.seek(mpWheelsData + 0x90*i + 0x78, 0)
 			mpWheelAllocateSpace.append(struct.unpack("<I", f.read(0x4))[0])
 			spinnable_models = struct.unpack("<I", f.read(0x4))[0]
@@ -4906,7 +5489,7 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 		wheels_offset = {}
 		maNumWheelParts = {}
 		muNumWheelParts = 0
-		for i in range(0, 4):
+		for i in range(0, num_wheels):
 			try:
 				group = instances_wheelGroups[object_placements[i]]
 			except:
@@ -4958,17 +5541,16 @@ def edit_graphicsspec(graphicsspec_path, instances, instances_wheelGroups, insta
 			#{"FR", [[object_index, [mModelId, [mTransform], is_spinnable, object_placement]], [object_index, [mModelId, [mTransform], is_spinnable, object_placement]]]
 			
 			# Erasing original wheel data in order to avoid using them in case len(instances_wheelGroups) < 4
-			for i in range(0, 4):
+			for i in range(0, num_wheels):
 				f.seek(mpWheelsData + 0x90*i + 0x78, 0)
 				f.write(struct.pack('<I', first_wheel_pointer))
 				f.write(struct.pack('<I', 0))
 				f.write(struct.pack('<H', 0))
 				
 			#for i in range(0, len(instances_wheelGroups)):
-			for i in range(0, 4):
+			for i in range(0, num_wheels):
 				f.seek(mpWheelsData + 0x90*i, 0)
 				try:
-					
 					f.write(struct.pack('<3f', *wheels_offset[object_placements[i]]))
 					f.write(struct.pack('<f', 0.0))
 					f.seek(0x68, 1)
@@ -5137,6 +5719,8 @@ def edit_graphicsspec_effects(graphicsspec_path, instances_effects):
 			
 				if has_unknow_value == True:
 					f.seek(unknown_pointer + j*0x4, 0)
+					if effect_copies[j][2] == None:
+						print("ERROR: effect %d copy %d is missing parameter %s (or %s)." % (effect_index_, effect_copies[j][0], '"sensor_hash"', '"EffectData"'))
 					f.write(struct.pack('<I', effect_copies[j][2]))
 		
 		f.seek(first_wheel_pointer_fixed, 0)
@@ -5248,7 +5832,11 @@ def edit_genesysobject2(genesysobject_dir, genesysobject_path, instances_wheelGr
 				placement = placement.split('.WheelRigidBody')[0].lower()
 				
 				wheel_data = instances_wheelGroups[placement]
-				g.seek(0x38, 0)
+				g.seek(0x14, 0)
+				placement_string_pointer = struct.unpack("<i", g.read(0x4))[0]
+				placement_string_size = struct.unpack("<i", g.read(0x4))[0]
+				g.seek(placement_string_pointer - 0x8, 1)
+				g.seek(-0x4, 1)
 				g.write(struct.pack('<f', wheel_data[0][1][1][0].transposed().translation[0]))
 				offsetsY.append(wheel_data[0][1][1][0].transposed().translation[1])
 			
@@ -5320,7 +5908,7 @@ def merge_resources_table(ids_table_path, resources_table_path):
 		muResourceEntriesOffset += 0x60
 		f.write(header_data)
 		if text != b'Resources generated by NFSMW 2012 Exporter':
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.3 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.5 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(0x10, 0)
 			f.write(struct.pack("<I", muResourceEntriesOffset))
@@ -5622,19 +6210,99 @@ def calculate_packed_normals(normal):
 	return packed_normal
 
 
+def normal_to_quaternion(direction):
+	orig_direction = direction.copy()
+	forward = Vector((0.0, 0.0, 1.0))
+	up = Vector((0.0, 1.0, 0.0))
+	
+	# if direction.z < 0:
+		# forward.z = -forward.z
+	# else:
+		# forward.z = forward.z
+	
+	rot1 = RotationBetweenVectors(forward, direction)
+	right = direction.cross(up)
+	up = right.cross(direction)
+	real_up = Vector((0.0, 1.0, 0.0))
+	new_up = rot1 @ real_up
+	
+	rot2 = RotationBetweenVectors(new_up, up)
+	res = rot2 @ rot1
+	
+	q = Quaternion()
+	q.x, q.y, q.z, q.w = res.x, res.y, res.z, res.w
+	q = q.normalized()
+	
+	# a = direction.cross(forward)
+	# q2 = Quaternion()
+	# q2.x, q2.y, q2.z = a
+	# q2.w = math.sqrt((direction.length**2) * (forward.length**2)) + direction.dot(forward)
+	# q2 = q2.normalized()
+	
+	return q
+
+
+def RotationBetweenVectors(forward, direction):
+	forward = forward.normalized()
+	direction = direction.normalized()
+	
+	cosTheta = forward.dot(direction)
+	if cosTheta < -1.0 + 0.001:
+		## special case when vectors in opposite directions:
+		## there is no "ideal" rotation axis
+		## So guess one; any will do as long as it's perpendicular to start
+		
+		axis = Vector((0.0, 1.0, 0.0)).cross(forward)
+
+		axis = axis.normalized()
+		
+		q = Quaternion()
+		q.x, q.y, q.z = axis
+		q.w = 0.0
+		
+		return q
+		
+	axis = forward.cross(direction)
+	s = math.sqrt((1.0 + cosTheta) * 2.0)
+	invs = 1.0 / s
+	q = Quaternion()
+	q.x, q.y, q.z = axis * invs
+	q.w = s * 0.5
+	
+	return q
+
+
+def quaternion_to_short(quaternion):
+	quaternion = Vector(quaternion)
+	quaternion = np.short((quaternion/quaternion.magnitude)*0x7FFF)
+	quat3 = [quaternion[1], quaternion[2], quaternion[3], quaternion[0]]
+	
+	return quat3
+
+
+def quaternion_to_ubyte(quaternion):
+	quaternion = Vector(quaternion)
+	
+	quaternion = quaternion*0.5 + Vector((0.5,) * 4)
+	quaternion = np.ubyte(quaternion*0xFF)
+	quat3 = [quaternion[1], quaternion[2], quaternion[3], quaternion[0]]
+	
+	return quat3
+
+
 def swizzle_normals(result, vec, index, prop):
-        if prop == '+X':
-            result[index] = vec[0]
-        elif prop == '-X':
-            result[index] = -vec[0]
-        elif prop == '+Y':
-            result[index] = vec[1]
-        elif prop == '-Y':
-            result[index] = -vec[1]
-        elif prop == '+Z':
-            result[index] = vec[2]
-        elif prop == '-Z':
-            result[index] = -vec[2]
+	if prop == '+X':
+		result[index] = vec[0]
+	elif prop == '-X':
+		result[index] = -vec[0]
+	elif prop == '+Y':
+		result[index] = vec[1]
+	elif prop == '-Y':
+		result[index] = -vec[1]
+	elif prop == '+Z':
+		result[index] = vec[2]
+	elif prop == '-Z':
+		result[index] = -vec[2]
 
 
 def calculate_tangents(indices_buffer, mesh_vertices_buffer, mShaderId):
@@ -6421,6 +7089,18 @@ def get_collision_tag1(mu16CollisionTag_part0):
 	return 0
 
 
+def get_neighbour_flags(Flag):
+	NeighbourFlags = {0x0: 'E_RENDERFLAG_NONE',
+					 0x1: 'E_NEIGHBOURFLAG_RENDER',
+					 0x2: 'E_NEIGHBOURFLAG_UNKNOWN_2',
+					 0x3: 'E_NEIGHBOURFLAG_IMMEDIATE'}
+	
+	if Flag in NeighbourFlags:
+		return NeighbourFlags[Flag]
+	
+	return Flag
+
+
 def get_neighbour_flags_code(NeighbourFlag):
 	NeighbourFlags = {'E_RENDERFLAG_NONE': 0x0,
 				'E_NEIGHBOURFLAG_RENDER': 0x1,
@@ -6548,6 +7228,63 @@ def calculate_resourceid(resource_name):
 	ID = ID[2:].upper().zfill(8)
 	ID = '_'.join([ID[::-1][x:x+2][::-1] for x in range(0, len(ID), 2)])
 	return ID
+
+
+def is_sensor_hash_valid(sensor_hash, resource_type):
+	sensor_hash = id_to_int(sensor_hash)
+	
+	mw_vehicle_hashes = [1228515738, 1721549691, 4263057514, 3586853397, 3429925619, 1506627702, 646795327, 2999398086, 1557447417,
+				 1557266390, 1136684206, 16031412, 4180447125, 2998789302, 1838953985, 3578188672, 1756105306, 1720035274,
+				 707783248, 40466349, 3862585275, 2899591701, 1989420160, 900567151, 838999239, 4013649115, 3842285086,
+				 1073977534, 2783504691, 600798187, 3161317293, 2421214271, 4092912933, 3005394594, 690341873, 3982244216,
+				 3641362692, 2187449469, 2081279908, 645631191, 629157140, 2080106040, 29607145, 2920151442, 1374961626,
+				 1034669362, 952517421, 3439786959, 1830334031, 939515086, 769369260, 3328641014, 2574575662, 1831522222,
+				 1759130190, 1739005857, 1549823653, 1440828847, 1411590089, 983531044, 264542661, 90039937, 4189828632,
+				 4156170530, 4154976662, 3982404118, 3818383968, 3644416432, 2884475091, 2596617275, 1841121393, 1570821063,
+				 905575390, 880782107, 857777324, 185270066, 4252033157, 4234295958, 4225474065, 4018396839, 3950304525,
+				 3937380074, 3793345504, 3753021131, 3747304215, 3519270914, 3368600969, 3102698507, 3084343253, 3026403407,
+				 2854685061, 2347622902, 2222827202, 1853063626, 1718712355, 1688271265, 1242894013, 1061985905, 1055487274,
+				 971322056, 896317165, 831313974, 752092822, 681794856, 399307714, 65706679, 4291380931, 4217638263, 4173778214,
+				 4086010237, 4055751625, 3964389817, 3892162973, 3838549592, 3837138376, 3820508560, 3816426060, 3760975948,
+				 3610066434, 3605426032, 3570835393, 3510147754, 3490890546, 3477199750, 3437763605, 3431943964, 3354896012,
+				 3329561355, 3159175642, 3153013891, 3137627562, 2992957054, 2956046021, 2935393652, 2923319590, 2884618018,
+				 2818506611, 2799830551, 2796450773, 2744528798, 2614411725, 2543110669, 2523870285, 2514722368, 2421657208,
+				 2405809853, 2335520198, 2317895502, 2260396895, 2248075865, 2178363206, 2177663134, 2139467538, 2127383944,
+				 1931507201, 1876512362, 1773527120, 1760945369, 1757947571, 1642794464, 1622337442, 1604028465, 1584638707,
+				 1566222685, 1543371875, 1532708659, 1455210828, 1392059713, 1392046324, 1378145605, 1288559529, 1258604211,
+				 1229929665, 1179929702, 1076899850, 1020669915, 1018114195, 946121533, 850550731, 832768520, 786696880,
+				 705277491, 649374874, 571711373, 526055109, 483724970, 467353935, 421321866, 417234684, 402064552, 336373099]
+	
+	mw_character_hashes = [4276031626, 4193389566, 4164855389, 4159247498, 3951316256, 3922678795, 3902700559, 3847713647,
+						   3535380311, 3322792297, 3132860557, 2908769381, 2808575887, 2675551904, 2663933085, 2488010968,
+						   2454733817, 2376621653, 2323705198, 2315694799, 2312642588, 2265652819, 2163090460, 2145158802,
+						   2042820099, 1984349567, 1921850522, 1892025777, 1860191536, 1761967999, 1742094640, 1693174227,
+						   1421199777, 1233783955, 1228515738, 763072577, 606936706, 598931767, 556726766, 503468009,
+						   409262265, 343733541, 190386755, 167360538, 92941324, 78831125]
+	
+	mw_trk_hashes = [3751734032, 2246328748, 3803758208, 3090218284, 2512358934, 213311404, 2310087011, 2094803747, 1892427088,
+					 352248314, 280522969, 52340673, 4217354311, 4191933932, 4146881126, 4092145696, 4057447319, 4009015844,
+					 3994612679, 3909813924, 3879399278, 3866865344, 3855973017, 3805966487, 3782431019, 3709592773, 3670082192,
+					 3669176105, 3665174748, 3656838251, 3552603383, 3546806769, 3534174311, 3512319361, 3439992183, 3408198630,
+					 3344245439, 3303634117, 3280798012, 3236954629, 3123380658, 3121425889, 3117211855, 3066970282, 3061572497,
+					 3028955562, 3014583767, 2991809473, 2962945674, 2958769391, 2937851059, 2921443540, 2918043639, 2909868106,
+					 2843026965, 2839144610, 2791214359, 2775445310, 2764983423, 2764528737, 2757806439, 2750436634, 2731625243,
+					 2635290105, 2501632424, 2467347533, 2463255055, 2457436324, 2396841338, 2256437081, 2230190262, 2206450863,
+					 2175079331, 2085839348, 2077434157, 2036633645, 2033295877, 1971342071, 1971256286, 1969907464, 1922074333,
+					 1915154596, 1837999491, 1812344331, 1808444281, 1740587087, 1678801889, 1586796454, 1586413528, 1453626530,
+					 1329408034, 1292069970, 1275416915, 1231533071, 1213262907, 1205346828, 1202879644, 1132425574, 1060280045,
+					 1030330589, 957969606, 925426030, 880296432, 857048553, 763584528, 729398617, 697542448, 693267797, 682099972,
+					 634066356, 615936012, 589451272, 587496539, 549826933, 542033186, 501698828, 477244186, 445289749, 426170017,
+					 356268514, 247956724, 198908853, 126124287, 47426241, 40720286]
+	
+	if resource_type == "GraphicsSpec":
+		return (sensor_hash in mw_vehicle_hashes)
+	elif resource_type == "CharacterSpec":
+		return (sensor_hash in mw_character_hashes)
+	elif resource_type == "InstanceList":
+		return (sensor_hash in mw_trk_hashes)
+	
+	return (sensor_hash in mw_vehicle_hashes)
 
 
 def is_valid_id(id):
@@ -6707,11 +7444,11 @@ class ExportNFSMW(Operator, ExportHelper):
 			default=True,
 			)
 	
-	recalculate_vcolor2: BoolProperty(
-			name="Recalculate vertex normal colors (vcolor2)",
-			description="Check in order to recalculate vertex normal colors. Useful when a game model has been edited",
-			default=False,
-			)
+	# recalculate_vcolor2: BoolProperty(
+			# name="Recalculate vertex normal colors (vcolor2)",
+			# description="Check in order to recalculate vertex normal colors. Useful when a game model has been edited",
+			# default=False,
+			# )
 	
 	ignore_hidden_meshes: BoolProperty(
 			name="Ignore hidden meshes",
@@ -6795,7 +7532,7 @@ class ExportNFSMW(Operator, ExportHelper):
 		
 		global_matrix = axis_conversion(from_forward='Z', from_up='Y', to_forward=self.axis_forward, to_up=self.axis_up).to_4x4()
 		
-		status = main(context, self.filepath, self.pack_bundle_file, self.ignore_hidden_meshes, self.copy_uv_layer, self.recalculate_vcolor2, self.force_rotation, [False, False, False], self.global_rotation,
+		status = main(context, self.filepath, self.pack_bundle_file, self.ignore_hidden_meshes, self.copy_uv_layer, self.force_rotation, [False, False, False], self.global_rotation,
 					  self.force_shared_asset_as_false, self.debug_shared_not_found, self.debug_use_shader_material_parameters,
 					  self.debug_use_default_samplerstates, self.debug_redirect_vehicle, self.debug_new_vehicle_name, global_matrix)
 		
@@ -6820,7 +7557,7 @@ class ExportNFSMW(Operator, ExportHelper):
 		box.prop(operator, "pack_bundle_file")
 		box.prop(operator, "ignore_hidden_meshes")
 		box.prop(operator, "copy_uv_layer")
-		box.prop(operator, "recalculate_vcolor2")
+		#box.prop(operator, "recalculate_vcolor2")
 		box.prop(operator, "force_rotation")
 		if operator.force_rotation == True:
 			box.prop(operator, "global_rotation")
