@@ -30,6 +30,8 @@ Go to `Edit > Preferences > Addons > Install` and either select .zip file or the
 - Predefined shader types for easy usage: `Metal or BodyLivery (livery), BodyPaint (paintable), BodyColor (non-paintable, uses Blender color), Interior, Chrome, CarbonFiber, DullPlastic, Badge, Chassis, Glass, Mirror, LicensePlate, LicensePlate_Number, Tyre, Rim, Caliper, BrakeDisc`
 
 ## Documentation
+- [How to Setup Blender Addons for MW12 or HPR](https://docs.google.com/document/d/17MgvNmoF_imx64WcghOgUVoji-hd4aQ6_tkreLQcnTk)
+- [Using NFS MW 2012/HP Importer Blender addon](https://docs.google.com/document/d/1e23Q_dl1tWWGG5wn7XDRZXqLu6C0A8UihPFyhbTTMvc)
 - [Using Blender NFS MW 2012 Exporter addon (for cars)](https://docs.google.com/document/d/1Vz9iIKMCYnIFS7giVAUu0WV8m8zIOoiqTzGKOQsXl_Q)
 - [Using Blender NFS MW 2012 Exporter (Advanced - for cars)](https://docs.google.com/document/d/1LZ6DyZFypR9UazhVVC0X6T2y39PaFKFziV8-EV9P-o8)
 - [Using Blender NFS MW 2012 Exporter (for driver)](https://docs.google.com/document/d/1B0si343Dlq5t6a986T7UvfWue4les909XTV6-lSv0XM)
