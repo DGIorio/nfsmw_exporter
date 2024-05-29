@@ -9,7 +9,6 @@
 - support for more wheels (num_wheels on graphicsSpec)
 - export probs and other instance types from tracks
 - vehicle: modify the coronas file for adding or removing effects
-- find a better default color2
 """
 
 
@@ -17,7 +16,7 @@ bl_info = {
 	"name": "Export to Need for Speed Most Wanted (2012) models format (.dat)",
 	"description": "Save objects as Need for Speed Most Wanted files",
 	"author": "DGIorio",
-	"version": (3, 5),
+	"version": (3, 6),
 	"blender": (3, 1, 0),
 	"location": "File > Export > Need for Speed Most Wanted (2012) (.dat)",
 	"warning": "",
@@ -535,6 +534,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 							samplers_names = object["samplers_names"]
 							sampler_states = object["SamplerStateIds"]
 							textures = object["TextureIds"]
+							
+							if debug_use_default_samplerstates == True:
+								sampler_states = ["D5_4F_91_2F"]*len(sampler_states)
 							
 							for mSamplerStateId in sampler_states:
 								if mSamplerStateId not in samplerstates:
@@ -1673,6 +1675,9 @@ def main(context, export_path, pack_bundle_file, ignore_hidden_meshes, copy_uv_l
 						sampler_states = object["model_SamplerStateIds"]
 						textures = object["model_TextureIds"]
 						
+						if debug_use_default_samplerstates == True:
+							sampler_states = ["D5_4F_91_2F"]*len(sampler_states)
+						
 						for mSamplerStateId in sampler_states:
 							if mSamplerStateId not in samplerstates:
 								samplerstates.append(mSamplerStateId)
@@ -2769,17 +2774,22 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 							name = int(name.split("_")[1])	# If error: bone and sensor data is in the wrong format. It should be 'Bone_001' or 'Sensor_001'
 							deform_bone_data.append((name, int(round(weight*255.0))))
 					
-					for i, sensor_data in enumerate(deform_sensor_data):
+					# Sort the lists based on the weight in descending order
+					deform_sensor_data = sorted(deform_sensor_data, key=lambda x: x[1], reverse=True)
+					deform_bone_data = sorted(deform_bone_data, key=lambda x: x[1], reverse=True)
+					
+					# Just getting the first four
+					for i, sensor_data in enumerate(deform_sensor_data[0:4]):
 						blend_indices[i] = sensor_data[0]
 						blend_weight[i] = sensor_data[1]
 					
-					for i, bone_data in enumerate(deform_bone_data):
+					for i, bone_data in enumerate(deform_bone_data[0:2]):
 						blend_indices[i+2] = bone_data[0]
 						blend_weight[i+2] = bone_data[1]
-				
-				#blends_indices[mesh_index][vert_index] = blend_indices
-				#blends_weights[mesh_index][vert_index] = blend_weight
-				if blend_indices == [0, 0, 0, 0] and blend_weight == [0xFF, 0, 0, 0]:
+					
+					blends_indices[mesh_index][vert_index] = blend_indices
+					blends_weights[mesh_index][vert_index] = blend_weight
+				else:
 					# Keeping for compatibility
 					if None in [blend_index1, blend_index2, blend_index3, blend_index4]:
 						blends_indices[mesh_index][vert_index] = [0, 0, 0, 0]
@@ -2790,9 +2800,6 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 					else:
 						blends_weights[mesh_index][vert_index] = [int(round(vert[blend_weight1]*255.0/100.0)), int(round(vert[blend_weight2]*255.0/100.0)),
 																  int(round(vert[blend_weight3]*255.0/100.0)), int(round(vert[blend_weight4]*255.0/100.0))]
-				else:
-					blends_indices[mesh_index][vert_index] = blend_indices
-					blends_weights[mesh_index][vert_index] = blend_weight
 			
 			indices_buffer[mesh_index].append(indices)
 			
@@ -2806,7 +2813,7 @@ def read_object(object, resource_type, shared_dir, copy_uv_layer):
 							index_layer = int(layer.name.upper().replace("TEXCOORD", "").replace("UV", "").replace("MAP", "")) - 1
 						uvs[index_layer] = loop[layer].uv
 					
-					# Cheking if all necessary uvs are present
+					# Checking if all necessary uvs are present
 					vertex_properties = vertex_properties_list[mesh_index]
 					if vertex_properties != None:
 						semantic_properties = vertex_properties[1][0]
@@ -4178,37 +4185,41 @@ def write_model(model_path, model, resource_type, name):	#ok
 			#renderable_indices[-1] = mu8NumRenderables - 1
 		
 		renderable_indices = [0]*mu8NumStates
-		for i in range(0, mu8NumRenderables):
-			renderable_indices[-1-i] = (mu8NumRenderables-1) - i
-		
-		if resource_type_child == "WheelGraphicsSpec" and mu8NumRenderables == 2 and "HI" in name.upper():
-			renderable_indices[0] = 0
-			renderable_indices[1] = 255
-			renderable_indices[2] = 255
-			renderable_indices[3] = 255
-			renderable_indices[4] = 1
-		elif resource_type_child == "WheelGraphicsSpec" and mu8NumRenderables == 3 and "HI" in name.upper():
-			renderable_indices[0] = 0
-			renderable_indices[1] = 1
-			renderable_indices[2] = 255
-			renderable_indices[3] = 255
-			renderable_indices[4] = 2
-		elif resource_type_child == "GraphicsSpec" and mu8NumRenderables == 6 and "LO" in name.upper():
-			renderable_indices[0] = 0
-			renderable_indices[1] = 1
-			renderable_indices[2] = 2
-			renderable_indices[3] = 3
-			renderable_indices[4] = 4
-			renderable_indices[4] = 255
-			renderable_indices[6] = 5
-		elif resource_type_child == "GraphicsSpec" and (mu8NumRenderables == 2 or mu8NumRenderables == 3):
-			renderable_indices[4] = 1
-			renderable_indices[5] = 255
-			#renderable_indices[6] = 2
-		
-		if model_states != []:
-			renderable_indices = model_states[:]
-			renderable_indices = [255 if x==-1 else x for x in renderable_indices]
+		if model_states == []:
+			for i in range(0, mu8NumRenderables):
+				renderable_indices[-1-i] = (mu8NumRenderables-1) - i
+			
+			if resource_type_child == "WheelGraphicsSpec" and mu8NumRenderables == 2 and "HI" in name.upper():
+				renderable_indices[0] = 0
+				renderable_indices[1] = 255
+				renderable_indices[2] = 255
+				renderable_indices[3] = 255
+				renderable_indices[4] = 1
+			elif resource_type_child == "WheelGraphicsSpec" and mu8NumRenderables == 3 and "HI" in name.upper():
+				renderable_indices[0] = 0
+				renderable_indices[1] = 1
+				renderable_indices[2] = 255
+				renderable_indices[3] = 255
+				renderable_indices[4] = 2
+			elif resource_type_child == "GraphicsSpec" and mu8NumRenderables == 6 and "LO" in name.upper():
+				renderable_indices[0] = 0
+				renderable_indices[1] = 1
+				renderable_indices[2] = 2
+				renderable_indices[3] = 3
+				renderable_indices[4] = 4
+				renderable_indices[4] = 255
+				renderable_indices[6] = 5
+			elif resource_type_child == "GraphicsSpec" and (mu8NumRenderables == 2 or mu8NumRenderables == 3):
+				renderable_indices[4] = 1
+				renderable_indices[5] = 255
+				#renderable_indices[6] = 2
+		elif model_states != []:
+			renderable_indices = list(model_states[:])
+			for i, x in enumerate(renderable_indices):
+				if x == -1 or x == 255:
+					renderable_indices[i] = 255
+				elif x >= mu8NumRenderables:
+					renderable_indices[i] = mu8NumRenderables - 1
 		
 		mppRenderables_ = [0]*mu8NumRenderables
 		
@@ -4570,7 +4581,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 					elif semantic_type == "TEXCOORD2":
 						if data_type[0] == "4B":
 							if color2 == []:
-								quat = normal_to_quaternion(Vector(normal))
+								quat = normal_to_quaternion(normal)
 								values = quaternion_to_ubyte(quat)
 							else:
 								values = color2
@@ -4579,7 +4590,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 					elif semantic_type == "TEXCOORD3":
 						if data_type[0] == "4B":
 							if color2 == []:
-								quat = normal_to_quaternion(Vector(normal))
+								quat = normal_to_quaternion(normal)
 								values = quaternion_to_ubyte(quat)
 							else:
 								values = color2
@@ -4588,7 +4599,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 					elif semantic_type == "TEXCOORD4":
 						if data_type[0] == "4B":
 							if color2 == []:
-								quat = normal_to_quaternion(Vector(normal))
+								quat = normal_to_quaternion(normal)
 								values = quaternion_to_ubyte(quat)
 							else:
 								values = color2
@@ -4635,7 +4646,7 @@ def write_renderable(renderable_path, renderable, resource_type, shared_dir):	#o
 					elif "norm" in data_type[0]:
 						data_type = data_type[0].replace("norm", "")
 						if semantic_type == "TEXCOORD5" or semantic_type == "TEXCOORD6":	#NORMAL_PACKED and NORMAL_PACKED for wheels
-							quat = normal_to_quaternion(Vector(values))
+							quat = normal_to_quaternion(values)
 							x, y, z, w = quaternion_to_short(quat)
 						else:
 							scale = 10.0
@@ -4834,7 +4845,7 @@ def write_raster(raster_path, raster): #ok
 		# DDS_PIXELFORMAT
 		dwSize = struct.unpack("<I", f.read(0x4))[0]
 		dwFlags = struct.unpack("<I", f.read(0x4))[0]
-		dwFourCC = f.read(0x4).decode()
+		dwFourCC = f.read(0x4)
 		dwRGBBitCount = struct.unpack("<I", f.read(0x4))[0]
 		dwRBitMask = struct.unpack("<I", f.read(0x4))[0]
 		dwGBitMask = struct.unpack("<I", f.read(0x4))[0]
@@ -4846,6 +4857,24 @@ def write_raster(raster_path, raster): #ok
 		caps3 = struct.unpack("<I", f.read(0x4))[0]
 		caps4 = struct.unpack("<I", f.read(0x4))[0]
 		reserved2 = struct.unpack("<I", f.read(0x4))[0]
+		
+		if dwFlags < 0x40:
+			dwFourCC = dwFourCC.decode()
+		else:
+			dwFourCC = ''
+			RGBA_order = sorted([dwRBitMask, dwGBitMask, dwBBitMask, dwABitMask])
+			RGBA_order = [mask for mask in RGBA_order if mask != 0]
+			bits = str(dwRGBBitCount // len(RGBA_order))
+			for mask in RGBA_order:
+				if mask == dwRBitMask:
+					dwFourCC += 'R'
+				elif mask == dwGBitMask:
+					dwFourCC += 'G'
+				elif mask == dwBBitMask:
+					dwFourCC += 'B'
+				elif mask == dwABitMask:
+					dwFourCC += 'A'
+				dwFourCC += bits
 		
 		data = f.read()
 	
@@ -5299,7 +5328,7 @@ def write_resources_table(resources_table_path, mResourceIds, resource_type, wri
 				f.write(b'NAV')
 			
 			f.seek(muHeaderOffset, 0)
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.5 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.6 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(muResourceEntriesOffset, 0)
 		
@@ -5908,7 +5937,7 @@ def merge_resources_table(ids_table_path, resources_table_path):
 		muResourceEntriesOffset += 0x60
 		f.write(header_data)
 		if text != b'Resources generated by NFSMW 2012 Exporter':
-			f.write(b'Resources generated by NFSMW 2012 Exporter 3.5 for Blender by DGIorio')
+			f.write(b'Resources generated by NFSMW 2012 Exporter 3.6 for Blender by DGIorio')
 			f.write(b'...........Hash:.3bb42e1d')
 			f.seek(0x10, 0)
 			f.write(struct.pack("<I", muResourceEntriesOffset))
@@ -6211,6 +6240,35 @@ def calculate_packed_normals(normal):
 
 
 def normal_to_quaternion(direction):
+	# Converting to Vector object
+	direction = Vector(direction)
+	
+	# Normalizing input vector
+	direction = direction.normalized()
+	
+	# Reference vector
+	reference_vector = Vector((0.0, 0.0, 1.0))
+	reference_quaternion = Quaternion()
+	
+	# Checking if the vectors are in opposite direction
+	if direction.dot(reference_vector) <= -0.99995:
+		reference_vector *= -1.0
+		reference_quaternion *= -1.0
+	
+	# Calculate the rotation matrix that rotates the reference vector to the rotated vector
+	rotation_matrix = reference_vector.rotation_difference(direction).to_matrix()
+
+	# Convert the rotation matrix back to a quaternion
+	reversed_quaternion = rotation_matrix.to_quaternion()
+
+	# Ensure the quaternion has the same sign as the original quaternion
+	if reversed_quaternion.dot(reference_quaternion) < 0:
+		reversed_quaternion.negate()
+
+	return reversed_quaternion
+
+
+def normal_to_quaternion_old(direction):
 	orig_direction = direction.copy()
 	forward = Vector((0.0, 0.0, 1.0))
 	up = Vector((0.0, 1.0, 0.0))
@@ -6504,7 +6562,7 @@ def get_raster_format(fourcc):
 	try:
 		return format_from_fourcc[fourcc]
 	except:
-		print("WARNING: DXT compression not identified. Setting as 'R8G8B8A8'")
+		print("WARNING: DXT compression not identified: %s. Setting as 'R8G8B8A8'" % fourcc)
 		return 28
 
 
