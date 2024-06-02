@@ -17,8 +17,15 @@ The NFSMW12 exporter is a Blender add-on to enable exporting objects as a Need f
 - [Vertex Oven](https://github.com/ForestKatsch/VertexOven) for baking ao map on vertex color
 - [Criterion modding helpers](https://github.com/DGIorio/criterion_modding_helpers) for some tools and help with preparing the Blender scene
 
+### Limitations
+This Modding Tool only works with Windows! (Tested on Linux and MacOS with no succes)
+
 ## Installation
-Go to `Edit > Preferences > Addons > Install` and either select .zip file or the unzipped `export_nfsmw_models.py` file.
+- You need blender v3.1 - 3.6 installed
+- nvidia texture tools installed / built and copyd in this path: `USERNAME\AppData\blender\3.x\scripts\addons\nvidia-texture-tools-2.1.1-win64` (x is the subversion of blender. you should have bin and lib folders when you open this path)
+- Add the GameLibrary here `USERNAME\AppData\blender\3.6\scripts\addons\NeedForSpeedMostWanted2012` (here you should have the PC libs and PS3 libs)
+- Install Additional Blender Panels `Edit > Preferences > Addons > Install` and select the script.py
+- Go to `Edit > Preferences > Addons > Install` and either select .zip file or the unzipped `export_nfsmw_models.py` file.
 
 ## Location
 `File > Export > Need for Speed Most Wanted (2012)`
