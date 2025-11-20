@@ -1,5 +1,5 @@
 # Need for Speed Most Wanted 2012 exporter
-[![Blender](https://img.shields.io/badge/Blender-v3.1_or_up_to_v3.6-blue?logo=blender&logoColor=white)](https://www.blender.org/download/lts/3-6/#versions "Download Blender")
+[![Blender](https://img.shields.io/badge/Blender-v3.6_LTS-blue?logo=blender&logoColor=white)](https://www.blender.org/download/lts/3-6/#versions "Download Blender")
 [![GitHub release](https://img.shields.io/github/release/DGIorio/nfsmw_exporter?include_prereleases=&sort=semver&color=blue)](https://github.com/DGIorio/nfsmw_exporter/releases/)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/DGIorio)
@@ -31,7 +31,7 @@ Go to `Edit > Preferences > Addons > Install` and either select .zip file or the
 
 ## Documentation
 - [How to Setup Blender Addons for MW12 or HPR](https://docs.google.com/document/d/17MgvNmoF_imx64WcghOgUVoji-hd4aQ6_tkreLQcnTk)
-- [Using NFS MW 2012/HP Importer Blender addon](https://docs.google.com/document/d/1e23Q_dl1tWWGG5wn7XDRZXqLu6C0A8UihPFyhbTTMvc)
+- [NFSMW12 Blender Importer addon tutorial](https://burnout.wiki/wiki/Modding/Need_for_Speed_Most_Wanted/NFSMW12_Blender_Importer_addon_tutorial)
 - [Using Blender NFS MW 2012 Exporter addon (for cars)](https://docs.google.com/document/d/1Vz9iIKMCYnIFS7giVAUu0WV8m8zIOoiqTzGKOQsXl_Q)
 - [Using Blender NFS MW 2012 Exporter (Advanced - for cars)](https://docs.google.com/document/d/1LZ6DyZFypR9UazhVVC0X6T2y39PaFKFziV8-EV9P-o8)
 - [Using Blender NFS MW 2012 Exporter (for driver)](https://docs.google.com/document/d/1B0si343Dlq5t6a986T7UvfWue4les909XTV6-lSv0XM)
